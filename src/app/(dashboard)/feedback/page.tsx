@@ -1,8 +1,11 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { useEffect } from 'react';
 import { TopBar } from '@/components/layout/topbar';
 import { FEEDBACK_ITEMS, AGENTS } from '@/lib/mock-data';
+import { useAuth } from '@/lib/auth-context';
 import { Card, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -23,9 +26,19 @@ function formatDate(iso: string) {
 }
 
 export default function FeedbackPage() {
+  const { user } = useAuth();
+  const router = useRouter();
   const [modalOpen, setModalOpen] = useState(false);
   const [form, setForm] = useState({ toId: '', type: '', message: '' });
   const { success } = useToast();
+
+  useEffect(() => {
+    if (user?.role === 'agent') {
+      router.replace('/dashboard');
+    }
+  }, [user, router]);
+
+  if (user?.role === 'agent') return null;
 
   const handleSend = () => {
     if (!form.toId || !form.type || !form.message) return;

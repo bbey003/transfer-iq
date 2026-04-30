@@ -96,7 +96,7 @@ export function LogTransferForm() {
         <span className="text-gray-400">{dateStr} {timeStr}</span>
         <div className="flex items-center gap-1.5 ml-auto">
           <User className="w-3.5 h-3.5" />
-          <span>{user?.name} ({user?.aid})</span>
+          <span>{user?.name} ({user?.role === 'agent' ? (user?.brid ?? user?.aid) : user?.aid})</span>
         </div>
       </div>
 

@@ -38,7 +38,9 @@ export default function ProfilePage() {
               <div>
                 <p className="font-semibold text-gray-900">{user?.name}</p>
                 <p className="text-sm text-gray-500">{user?.email}</p>
-                <p className="text-xs text-gray-400 capitalize mt-0.5">{user?.role} · {user?.aid}</p>
+                <p className="text-xs text-gray-400 capitalize mt-0.5">
+                  {user?.role} · {user?.role === 'agent' ? (user?.brid ?? user?.aid) : user?.aid}
+                </p>
               </div>
             </div>
 
@@ -49,7 +51,10 @@ export default function ProfilePage() {
                 onChange={(e) => setName(e.target.value)}
               />
               <Input label="Email" value={user?.email ?? ''} disabled hint="Email cannot be changed for internal accounts." />
-              <Input label="AID" value={user?.aid ?? ''} disabled />
+              {user?.role === 'agent'
+                ? <Input label="BRID" value={user?.brid ?? user?.aid ?? ''} disabled hint="Your Barclays Role ID." />
+                : <Input label="AID" value={user?.aid ?? ''} disabled />
+              }
 
               <Button loading={saving} onClick={handleSave}>Save Changes</Button>
             </div>

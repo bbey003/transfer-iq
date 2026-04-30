@@ -12,7 +12,9 @@ export interface User {
   name: string;
   email: string;
   role: UserRole;
+  /** Agents use BRID; managers/admins use AID */
   aid: string;
+  brid?: string;
   avatar?: string;
   department: string;
   status: 'active' | 'suspended';

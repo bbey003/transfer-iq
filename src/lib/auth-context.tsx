@@ -27,6 +27,7 @@ const MOCK_USERS: Record<string, { password: string; user: User }> = {
       email: 'jessica.lee@transferiq.internal',
       role: 'agent',
       aid: 'AID-87321',
+      brid: 'BRID-10421',
       department: 'Operations',
       status: 'active',
       createdAt: '2024-02-01',

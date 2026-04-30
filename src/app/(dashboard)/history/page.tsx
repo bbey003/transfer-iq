@@ -3,8 +3,8 @@
 import { useState } from 'react';
 import { TopBar } from '@/components/layout/topbar';
 import { TRANSFERS } from '@/lib/mock-data';
+import { useAuth } from '@/lib/auth-context';
 import { StatusBadge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
@@ -21,12 +21,18 @@ function formatTime(iso: string) {
 const STATUS_TABS = ['All', 'Completed', 'Pending Review', 'Escalated', 'Invalid'];
 
 export default function HistoryPage() {
+  const { user } = useAuth();
   const [search, setSearch] = useState('');
   const [activeTab, setActiveTab] = useState('All');
+
+  // Agents see only their own transfers; managers/admins see all
+  const scopedTransfers = user?.role === 'agent'
+    ? TRANSFERS.filter((t) => t.agentId === user.id)
+    : TRANSFERS;
   const [page, setPage] = useState(1);
   const perPage = 8;
 
-  const filtered = TRANSFERS.filter((t) => {
+  const filtered = scopedTransfers.filter((t) => {
     const matchesSearch =
       !search ||
       t.agentName.toLowerCase().includes(search.toLowerCase()) ||
@@ -43,7 +49,10 @@ export default function HistoryPage() {
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      <TopBar title="Transfer History" subtitle="View and manage all transfer submissions." />
+      <TopBar
+        title={user?.role === 'agent' ? 'My Transfer History' : 'Transfer History'}
+        subtitle={user?.role === 'agent' ? 'Your personal transfer submissions.' : 'View and manage all transfer submissions.'}
+      />
 
       <div className="flex-1 overflow-y-auto">
         <div className="p-6 space-y-4">
@@ -62,9 +71,11 @@ export default function HistoryPage() {
             <Button variant="outline" size="sm" className="gap-2 shrink-0">
               <Filter className="w-4 h-4" /> Filter
             </Button>
-            <Button variant="outline" size="sm" className="gap-2 shrink-0">
-              <Download className="w-4 h-4" /> Export CSV
-            </Button>
+            {user?.role !== 'agent' && (
+              <Button variant="outline" size="sm" className="gap-2 shrink-0">
+                <Download className="w-4 h-4" /> Export CSV
+              </Button>
+            )}
           </div>
 
           {/* Status Tabs */}
@@ -91,7 +102,10 @@ export default function HistoryPage() {
               <table className="w-full" role="table">
                 <thead>
                   <tr className="border-b border-gray-100 bg-gray-50/50">
-                    {['Time', 'Agent', 'AID', 'Dept', 'Partner', 'Reason', 'Status', ''].map((h) => (
+                    {(user?.role === 'agent'
+                      ? ['Time', 'AID', 'Dept', 'Partner', 'Reason', 'Status', '']
+                      : ['Time', 'Agent', 'AID', 'Dept', 'Partner', 'Reason', 'Status', '']
+                    ).map((h) => (
                       <th key={h} className="px-4 py-3 text-left text-xs font-medium text-gray-500 whitespace-nowrap">
                         {h}
                       </th>
@@ -108,14 +122,16 @@ export default function HistoryPage() {
                   ) : pageItems.map((t) => (
                     <tr key={t.id} className="hover:bg-gray-50/50 transition-colors">
                       <td className="px-4 py-3 text-xs text-gray-500 whitespace-nowrap">{formatTime(t.createdAt)}</td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-2">
-                          <div className={cn('w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0', t.agentColor)}>
-                            {t.agentInitials}
+                      {user?.role !== 'agent' && (
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-2">
+                            <div className={cn('w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0', t.agentColor)}>
+                              {t.agentInitials}
+                            </div>
+                            <span className="text-sm text-gray-800 whitespace-nowrap">{t.agentName}</span>
                           </div>
-                          <span className="text-sm text-gray-800 whitespace-nowrap">{t.agentName}</span>
-                        </div>
-                      </td>
+                        </td>
+                      )}
                       <td className="px-4 py-3 text-sm font-mono text-gray-600">{t.aid}</td>
                       <td className="px-4 py-3 text-sm text-gray-700 whitespace-nowrap">{t.department}</td>
                       <td className="px-4 py-3 text-sm text-gray-500">{t.partner || '—'}</td>

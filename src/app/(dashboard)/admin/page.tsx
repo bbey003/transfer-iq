@@ -208,7 +208,7 @@ export default function AdminPage() {
               <table className="w-full">
                 <thead>
                   <tr className="border-b border-gray-100 bg-gray-50/50">
-                    {['User', 'Email', 'AID', 'Role', 'Status', 'Actions'].map((h) => (
+                    {['User', 'Email', 'AID / BRID', 'Role', 'Status', 'Actions'].map((h) => (
                       <th key={h} className="px-4 py-3 text-left text-xs font-medium text-gray-500">{h}</th>
                     ))}
                   </tr>
@@ -225,7 +225,11 @@ export default function AdminPage() {
                         </div>
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-500">{u.email}</td>
-                      <td className="px-4 py-3 text-sm font-mono text-gray-500">{u.aid}</td>
+                      <td className="px-4 py-3 text-sm font-mono text-gray-500">
+                        {u.role === 'agent' && u.brid
+                          ? <span><span className="text-gray-400 text-xs mr-1">BRID</span>{u.brid}</span>
+                          : <span><span className="text-gray-400 text-xs mr-1">AID</span>{u.aid}</span>}
+                      </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-1">
                           {u.role === 'admin' && <Shield className="w-3.5 h-3.5 text-blue-600" />}

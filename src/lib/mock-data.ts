@@ -129,14 +129,14 @@ export const KNOWLEDGE_GAPS: KnowledgeGap[] = [
 ];
 
 export const AGENTS: User[] = [
-  { id: 'u-101', name: 'Jessica Lee', email: 'jessica.lee@transferiq.internal', role: 'agent', aid: 'AID-87321', department: 'Operations', status: 'active', createdAt: '2024-02-01' },
-  { id: 'u-102', name: 'Michael Chen', email: 'michael.chen@transferiq.internal', role: 'agent', aid: 'AID-87320', department: 'Operations', status: 'active', createdAt: '2024-02-01' },
-  { id: 'u-103', name: 'Emily Rodriguez', email: 'emily.rodriguez@transferiq.internal', role: 'agent', aid: 'AID-87319', department: 'Operations', status: 'active', createdAt: '2024-02-15' },
-  { id: 'u-104', name: 'David Park', email: 'david.park@transferiq.internal', role: 'agent', aid: 'AID-87318', department: 'Operations', status: 'active', createdAt: '2024-03-01' },
-  { id: 'u-105', name: 'Lisa Anderson', email: 'lisa.anderson@transferiq.internal', role: 'agent', aid: 'AID-87317', department: 'Operations', status: 'active', createdAt: '2024-03-10' },
-  { id: 'u-106', name: 'Ryan Kim', email: 'ryan.kim@transferiq.internal', role: 'agent', aid: 'AID-87316', department: 'Operations', status: 'active', createdAt: '2024-03-15' },
-  { id: 'u-107', name: 'Sarah Torres', email: 'sarah.torres@transferiq.internal', role: 'agent', aid: 'AID-87315', department: 'Operations', status: 'active', createdAt: '2024-04-01' },
-  { id: 'u-108', name: 'Will Brooks', email: 'will.brooks@transferiq.internal', role: 'agent', aid: 'AID-87314', department: 'Operations', status: 'suspended', createdAt: '2024-04-15' },
+  { id: 'u-101', name: 'Jessica Lee', email: 'jessica.lee@transferiq.internal', role: 'agent', aid: 'AID-87321', brid: 'BRID-10421', department: 'Operations', status: 'active', createdAt: '2024-02-01' },
+  { id: 'u-102', name: 'Michael Chen', email: 'michael.chen@transferiq.internal', role: 'agent', aid: 'AID-87320', brid: 'BRID-10422', department: 'Operations', status: 'active', createdAt: '2024-02-01' },
+  { id: 'u-103', name: 'Emily Rodriguez', email: 'emily.rodriguez@transferiq.internal', role: 'agent', aid: 'AID-87319', brid: 'BRID-10423', department: 'Operations', status: 'active', createdAt: '2024-02-15' },
+  { id: 'u-104', name: 'David Park', email: 'david.park@transferiq.internal', role: 'agent', aid: 'AID-87318', brid: 'BRID-10424', department: 'Operations', status: 'active', createdAt: '2024-03-01' },
+  { id: 'u-105', name: 'Lisa Anderson', email: 'lisa.anderson@transferiq.internal', role: 'agent', aid: 'AID-87317', brid: 'BRID-10425', department: 'Operations', status: 'active', createdAt: '2024-03-10' },
+  { id: 'u-106', name: 'Ryan Kim', email: 'ryan.kim@transferiq.internal', role: 'agent', aid: 'AID-87316', brid: 'BRID-10426', department: 'Operations', status: 'active', createdAt: '2024-03-15' },
+  { id: 'u-107', name: 'Sarah Torres', email: 'sarah.torres@transferiq.internal', role: 'agent', aid: 'AID-87315', brid: 'BRID-10427', department: 'Operations', status: 'active', createdAt: '2024-04-01' },
+  { id: 'u-108', name: 'Will Brooks', email: 'will.brooks@transferiq.internal', role: 'agent', aid: 'AID-87314', brid: 'BRID-10428', department: 'Operations', status: 'suspended', createdAt: '2024-04-15' },
 ];
 
 export const COACHING_SESSIONS: CoachingSession[] = [

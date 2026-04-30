@@ -24,7 +24,7 @@ const NAV_ITEMS = [
   { href: '/history', label: 'History', icon: History, roles: ['agent', 'manager', 'admin'] },
   { href: '/team-insights', label: 'Team Insights', icon: Users, roles: ['manager', 'admin'] },
   { href: '/coaching', label: 'Coaching', icon: GraduationCap, roles: ['manager', 'admin'] },
-  { href: '/feedback', label: 'Feedback', icon: MessageSquare, roles: ['agent', 'manager', 'admin'] },
+  { href: '/feedback', label: 'Feedback', icon: MessageSquare, roles: ['manager', 'admin'] },
   { href: '/admin', label: 'Admin', icon: Settings, roles: ['admin', 'manager'] },
 ];
 
