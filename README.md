@@ -1,6 +1,20 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# TransferIQ — Call Transfer Reporting & Coaching Dashboard
+
+Internal enterprise web app for call center teams to log, track, review, and analyze call transfers.
+
+**Demo credentials** — Manager: `alex.carter@transferiq.internal` / `manager123` · Agent: `jessica.lee@transferiq.internal` / `agent123`
 
 ## Getting Started
+
+```bash
+npm install && npm run dev
+```
+
+Open [http://localhost:3000](http://localhost:3000).
+
+---
+
+## Original README
 
 First, run the development server:
 
