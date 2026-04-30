@@ -8,6 +8,7 @@ import { KnowledgeGapsCard } from '@/components/dashboard/knowledge-gaps';
 import { AgentPatternsCard } from '@/components/dashboard/agent-patterns';
 import { RecentTransfersTable } from '@/components/dashboard/recent-transfers';
 import { AgentDashboard } from '@/components/dashboard/agent-dashboard';
+import { ReviewQueue } from '@/components/dashboard/review-queue';
 import { Button } from '@/components/ui/button';
 import { Calendar, Filter } from 'lucide-react';
 
@@ -44,6 +45,7 @@ export default function DashboardPage() {
             </Button>
           </div>
           <DashboardStatsCards />
+          <ReviewQueue />
           <div className="grid grid-cols-1 xl:grid-cols-3 gap-5">
             <TransfersByDeptChart />
             <TransferReasonsChart />

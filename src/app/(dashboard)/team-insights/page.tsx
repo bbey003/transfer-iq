@@ -3,18 +3,21 @@
 import { TopBar } from '@/components/layout/topbar';
 import { Card, CardHeader } from '@/components/ui/card';
 import { StatusBadge } from '@/components/ui/badge';
-import { AGENTS, AGENT_PATTERNS, TRANSFERS } from '@/lib/mock-data';
+import { AGENTS, AGENT_PATTERNS } from '@/lib/mock-data';
+import { useTransferStore } from '@/lib/transfer-store';
 import { cn } from '@/lib/utils';
 import { TrendingUp, TrendingDown, Users } from 'lucide-react';
 
-function agentStats(agentId: string) {
-  const transfers = TRANSFERS.filter((t) => t.agentId === agentId);
-  const flagged = transfers.filter((t) => t.flagged).length;
-  const completed = transfers.filter((t) => t.status === 'completed').length;
-  return { total: transfers.length, flagged, completed };
-}
-
 export default function TeamInsightsPage() {
+  const { transfers } = useTransferStore();
+
+  function agentStats(agentId: string) {
+    const agentTransfers = transfers.filter((t) => t.agentId === agentId);
+    const flagged = agentTransfers.filter((t) => t.flagged).length;
+    const completed = agentTransfers.filter((t) => t.status === 'completed').length;
+    return { total: agentTransfers.length, flagged, completed };
+  }
+
   return (
     <div className="flex flex-col h-full overflow-hidden">
       <TopBar title="Team Insights" subtitle="Performance overview for your team members." />
@@ -26,8 +29,8 @@ export default function TeamInsightsPage() {
             {[
               { label: 'Total Agents', value: AGENTS.filter(a => a.status === 'active').length, icon: Users, color: 'text-blue-600', bg: 'bg-blue-50' },
               { label: 'Agents w/ Recurring Patterns', value: AGENT_PATTERNS.length, icon: TrendingUp, color: 'text-orange-500', bg: 'bg-orange-50' },
-              { label: 'Total Transfers (week)', value: TRANSFERS.length, icon: TrendingUp, color: 'text-emerald-600', bg: 'bg-emerald-50' },
-              { label: 'Flagged Transfers', value: TRANSFERS.filter(t => t.flagged).length, icon: TrendingDown, color: 'text-red-500', bg: 'bg-red-50' },
+              { label: 'Total Transfers (week)', value: transfers.length, icon: TrendingUp, color: 'text-emerald-600', bg: 'bg-emerald-50' },
+              { label: 'Flagged Transfers', value: transfers.filter(t => t.flagged).length, icon: TrendingDown, color: 'text-red-500', bg: 'bg-red-50' },
             ].map((item) => (
               <div key={item.label} className="bg-white rounded-xl border border-gray-200 p-5 flex items-start gap-4">
                 <div className={cn('w-10 h-10 rounded-lg flex items-center justify-center shrink-0', item.bg)}>

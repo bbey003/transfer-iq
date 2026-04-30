@@ -3,7 +3,6 @@ export type UserRole = 'agent' | 'manager' | 'admin';
 export type TransferStatus =
   | 'completed'
   | 'pending_review'
-  | 'escalated'
   | 'invalid'
   | 'draft';
 
@@ -59,6 +58,9 @@ export interface Transfer {
   reviewedBy?: string;
   reviewedAt?: string;
   flagged: boolean;
+  flagReasons?: string[];
+  riskScore?: number;
+  managerNote?: string;
 }
 
 export interface CoachingSession {

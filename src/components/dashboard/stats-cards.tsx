@@ -1,23 +1,22 @@
 'use client';
 
-import { TrendingUp, TrendingDown, Flag, Building2, UserCog } from 'lucide-react';
+import { ArrowRightLeft, Flag, Building2, UserCog } from 'lucide-react';
+import { TrendingUp, TrendingDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { DASHBOARD_STATS } from '@/lib/mock-data';
+import { useTransferStore } from '@/lib/transfer-store';
 
 interface StatCardProps {
   label: string;
   value: string | number;
-  change?: number;
-  period?: string;
-  positive?: boolean;
+  subtext?: string;
+  trend?: { value: number; label: string; positive: boolean };
   icon: React.ReactNode;
   iconBg: string;
-  subtext?: string;
 }
 
-function StatCard({ label, value, change, period, positive, icon, iconBg, subtext }: StatCardProps) {
-  const isUp = change !== undefined && change > 0;
-  const isGood = positive ? isUp : !isUp;
+function StatCard({ label, value, subtext, trend, icon, iconBg }: StatCardProps) {
+  const isUp = trend && trend.value > 0;
+  const isGood = trend ? (trend.positive ? isUp : !isUp) : true;
 
   return (
     <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
@@ -29,22 +28,10 @@ function StatCard({ label, value, change, period, positive, icon, iconBg, subtex
           <p className="text-xs text-gray-500 font-medium mb-1">{label}</p>
           <p className="text-2xl font-bold text-gray-900 leading-none">{value}</p>
           {subtext && <p className="text-xs text-gray-500 mt-1">{subtext}</p>}
-          {change !== undefined && period && (
-            <div className={cn('flex items-center gap-1 mt-1.5', isGood ? 'text-emerald-600' : 'text-red-500')}>
-              {isUp
-                ? <TrendingUp className="w-3.5 h-3.5" />
-                : <TrendingDown className="w-3.5 h-3.5" />}
-              <span className="text-xs font-medium">
-                {change > 0 ? '+' : ''}{change}% {period}
-              </span>
-            </div>
-          )}
-          {change !== undefined && period === undefined && (
-            <div className={cn('flex items-center gap-1 mt-1.5', isGood ? 'text-emerald-600' : 'text-red-500')}>
+          {trend && (
+            <div className={cn('flex items-center gap-1 mt-1.5 text-xs font-medium', isGood ? 'text-emerald-600' : 'text-red-500')}>
               {isUp ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />}
-              <span className="text-xs font-medium">
-                {change > 0 ? '+' : ''}{change} vs last 7 days
-              </span>
+              {trend.value > 0 ? '+' : ''}{trend.value} {trend.label}
             </div>
           )}
         </div>
@@ -54,40 +41,34 @@ function StatCard({ label, value, change, period, positive, icon, iconBg, subtex
 }
 
 export function DashboardStatsCards() {
-  const { totalTransfers, invalidFlagged, topDept, agentsNeedingCoaching } = DASHBOARD_STATS;
+  const { stats, agentsNeedingCoaching } = useTransferStore();
 
   return (
     <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
       <StatCard
-        label="Total Transfers"
-        value={totalTransfers.value.toLocaleString()}
-        change={totalTransfers.change}
-        period={totalTransfers.period}
-        positive={true}
-        icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-5 h-5 text-blue-600"><path d="M7 16V4m0 0L3 8m4-4l4 4M17 8v12m0 0l4-4m-4 4l-4-4" /></svg>}
+        label="Total Transfers (7 days)"
+        value={stats.totalThisWeek.toLocaleString()}
+        icon={<ArrowRightLeft className="w-5 h-5 text-blue-600" />}
         iconBg="bg-blue-50"
       />
       <StatCard
-        label="Invalid Transfers Flagged"
-        value={invalidFlagged.value}
-        change={invalidFlagged.change}
-        period={invalidFlagged.period}
-        positive={false}
-        icon={<Flag className="w-5 h-5 text-red-500" />}
-        iconBg="bg-red-50"
+        label="Pending Review"
+        value={stats.pendingReview}
+        subtext={stats.pendingReview > 0 ? 'Awaiting manager review' : 'All transfers reviewed'}
+        icon={<Flag className="w-5 h-5 text-amber-500" />}
+        iconBg="bg-amber-50"
       />
       <StatCard
         label="Top Transfer Dept"
-        value={topDept.value}
-        subtext={topDept.subtext}
+        value={stats.topDept}
+        subtext={`${stats.topDeptPct}% of total transfers`}
         icon={<Building2 className="w-5 h-5 text-orange-500" />}
         iconBg="bg-orange-50"
       />
       <StatCard
-        label="Agents Needing Coaching"
-        value={agentsNeedingCoaching.value}
-        change={agentsNeedingCoaching.change}
-        positive={false}
+        label="Agents Flagged for Review"
+        value={agentsNeedingCoaching.length}
+        subtext={agentsNeedingCoaching.length > 0 ? agentsNeedingCoaching.map((a) => a.agentName.split(' ')[0]).join(', ') : 'No agents flagged'}
         icon={<UserCog className="w-5 h-5 text-purple-500" />}
         iconBg="bg-purple-50"
       />

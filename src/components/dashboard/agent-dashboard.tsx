@@ -1,7 +1,8 @@
 'use client';
 
-import { TRANSFERS, FEEDBACK_ITEMS, COACHING_SESSIONS } from '@/lib/mock-data';
+import { FEEDBACK_ITEMS, COACHING_SESSIONS } from '@/lib/mock-data';
 import { useAuth } from '@/lib/auth-context';
+import { useTransferStore } from '@/lib/transfer-store';
 import { Card, CardHeader } from '@/components/ui/card';
 import { StatusBadge } from '@/components/ui/badge';
 import { LogTransferForm } from '@/components/transfers/log-transfer-form';
@@ -17,8 +18,9 @@ function formatTime(iso: string) {
 
 export function AgentDashboard() {
   const { user } = useAuth();
+  const { transfers } = useTransferStore();
 
-  const myTransfers = TRANSFERS.filter((t) => t.agentId === user?.id);
+  const myTransfers = transfers.filter((t) => t.agentId === user?.id);
   const myFeedback = FEEDBACK_ITEMS.filter((f) => f.toId === user?.id);
   const myCoaching = COACHING_SESSIONS.filter((s) => s.agentId === user?.id);
 

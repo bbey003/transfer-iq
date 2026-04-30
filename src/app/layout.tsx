@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import './globals.css';
 import { AuthProvider } from '@/lib/auth-context';
 import { ToastProvider } from '@/components/ui/toast';
+import { TransferStoreProvider } from '@/lib/transfer-store';
 
 export const metadata: Metadata = {
   title: 'TransferIQ | Call Transfer Reporting & Coaching Dashboard',
@@ -18,9 +19,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="h-full">
         <a href="#main-content" className="skip-link">Skip to main content</a>
         <AuthProvider>
-          <ToastProvider>
-            {children}
-          </ToastProvider>
+          <TransferStoreProvider>
+            <ToastProvider>
+              {children}
+            </ToastProvider>
+          </TransferStoreProvider>
         </AuthProvider>
       </body>
     </html>

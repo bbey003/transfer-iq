@@ -1,51 +1,50 @@
 'use client';
 
-import { TRANSFERS } from '@/lib/mock-data';
-import { Card, CardHeader } from '@/components/ui/card';
+import { useTransferStore } from '@/lib/transfer-store';
 import { StatusBadge } from '@/components/ui/badge';
+import { Card, CardHeader } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
-import { MoreHorizontal } from 'lucide-react';
+import { MoreHorizontal, AlertCircle } from 'lucide-react';
 import { useState } from 'react';
+import Link from 'next/link';
 
 function formatTime(iso: string) {
   return new Intl.DateTimeFormat('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-    hour12: true,
+    month: 'short', day: 'numeric', year: 'numeric',
+    hour: 'numeric', minute: '2-digit', hour12: true,
   }).format(new Date(iso));
 }
 
 export function RecentTransfersTable() {
+  const { transfers } = useTransferStore();
   const [page, setPage] = useState(1);
   const perPage = 5;
-  const total = TRANSFERS.length;
-  const totalPages = Math.ceil(total / perPage);
-  const pageItems = TRANSFERS.slice((page - 1) * perPage, page * perPage);
+  const totalPages = Math.ceil(transfers.length / perPage);
+  const pageItems = transfers.slice((page - 1) * perPage, page * perPage);
 
   return (
     <Card padding="none">
-      <div className="px-5 pt-5 pb-3">
-        <CardHeader
-          title="Recent Transfers"
-          tooltip="The most recent transfers submitted by your team"
-        />
+      <div className="px-5 pt-5 pb-3 flex items-center justify-between">
+        <CardHeader title="Recent Transfers" tooltip="Live submissions from your team, newest first" />
+        <Link href="/history" className="text-xs text-blue-600 hover:underline">View all</Link>
       </div>
       <div className="overflow-x-auto">
         <table className="w-full" role="table">
           <thead>
             <tr className="border-y border-gray-100 bg-gray-50/50">
               {['Time', 'Agent', 'AID', 'Dept', 'Reason', 'Status', ''].map((h) => (
-                <th key={h} className="px-4 py-2.5 text-left text-xs font-medium text-gray-500">
-                  {h}
-                </th>
+                <th key={h} className="px-4 py-2.5 text-left text-xs font-medium text-gray-500">{h}</th>
               ))}
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-50">
-            {pageItems.map((t) => (
+            {pageItems.length === 0 ? (
+              <tr>
+                <td colSpan={7} className="px-4 py-8 text-center text-sm text-gray-400">
+                  No transfers submitted yet.
+                </td>
+              </tr>
+            ) : pageItems.map((t) => (
               <tr key={t.id} className="hover:bg-gray-50/50 transition-colors">
                 <td className="px-4 py-3 text-xs text-gray-500 whitespace-nowrap">{formatTime(t.createdAt)}</td>
                 <td className="px-4 py-3">
@@ -60,57 +59,50 @@ export function RecentTransfersTable() {
                 <td className="px-4 py-3 text-sm text-gray-700">{t.department}</td>
                 <td className="px-4 py-3 text-sm text-gray-700">{t.reason}</td>
                 <td className="px-4 py-3">
-                  <StatusBadge status={t.status} />
+                  <div className="flex items-center gap-1.5">
+                    <StatusBadge status={t.status} />
+                    {t.status === 'pending_review' && t.flagReasons && t.flagReasons.length > 0 && (
+                      <span title={t.flagReasons.join(' | ')}>
+                        <AlertCircle className="w-3.5 h-3.5 text-amber-500" />
+                      </span>
+                    )}
+                  </div>
                 </td>
                 <td className="px-4 py-3">
-                  <button className="p-1 rounded text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors" aria-label="Transfer options">
-                    <MoreHorizontal className="w-4 h-4" />
-                  </button>
+                  <Link href={`/history/${t.id}`}>
+                    <button className="p-1 rounded text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors" aria-label="View transfer">
+                      <MoreHorizontal className="w-4 h-4" />
+                    </button>
+                  </Link>
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
-
-      {/* Pagination */}
-      <div className="flex items-center justify-between px-5 py-3 border-t border-gray-100">
-        <p className="text-xs text-gray-500">
-          Showing {(page - 1) * perPage + 1} to {Math.min(page * perPage, total)} of {total} results
-        </p>
-        <div className="flex items-center gap-1">
-          <button
-            onClick={() => setPage((p) => Math.max(1, p - 1))}
-            disabled={page === 1}
-            className="w-7 h-7 flex items-center justify-center rounded text-gray-400 hover:text-gray-600 hover:bg-gray-100 disabled:opacity-30 text-xs"
-            aria-label="Previous page"
-          >
-            {'<'}
-          </button>
-          {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => i + 1).map((p) => (
-            <button
-              key={p}
-              onClick={() => setPage(p)}
-              className={cn(
-                'w-7 h-7 flex items-center justify-center rounded text-xs font-medium',
-                p === page ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-100'
-              )}
-              aria-current={p === page ? 'page' : undefined}
-            >
-              {p}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between px-5 py-3 border-t border-gray-100">
+          <p className="text-xs text-gray-500">
+            Showing {(page - 1) * perPage + 1}–{Math.min(page * perPage, transfers.length)} of {transfers.length}
+          </p>
+          <div className="flex items-center gap-1">
+            <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}
+              className="w-7 h-7 flex items-center justify-center rounded text-xs text-gray-500 hover:bg-gray-100 disabled:opacity-30">
+              &lt;
             </button>
-          ))}
-          {totalPages > 5 && <span className="text-gray-400 text-xs px-1">...</span>}
-          <button
-            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-            disabled={page === totalPages}
-            className="w-7 h-7 flex items-center justify-center rounded text-gray-400 hover:text-gray-600 hover:bg-gray-100 disabled:opacity-30 text-xs"
-            aria-label="Next page"
-          >
-            {'>'}
-          </button>
+            {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => i + 1).map((p) => (
+              <button key={p} onClick={() => setPage(p)}
+                className={cn('w-7 h-7 rounded text-xs font-medium', p === page ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-100')}>
+                {p}
+              </button>
+            ))}
+            <button onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages}
+              className="w-7 h-7 flex items-center justify-center rounded text-xs text-gray-500 hover:bg-gray-100 disabled:opacity-30">
+              &gt;
+            </button>
+          </div>
         </div>
-      </div>
+      )}
     </Card>
   );
 }

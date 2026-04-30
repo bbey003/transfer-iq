@@ -2,13 +2,13 @@
 
 import { use } from 'react';
 import { useRouter } from 'next/navigation';
-import { TRANSFERS } from '@/lib/mock-data';
+import { useTransferStore } from '@/lib/transfer-store';
 import { TopBar } from '@/components/layout/topbar';
 import { Card } from '@/components/ui/card';
 import { StatusBadge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { ArrowLeft, Flag } from 'lucide-react';
+import { ArrowLeft, AlertCircle, Flag, MessageSquare } from 'lucide-react';
 
 function formatTime(iso: string) {
   return new Intl.DateTimeFormat('en-US', {
@@ -20,7 +20,8 @@ function formatTime(iso: string) {
 export default function TransferDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const router = useRouter();
-  const transfer = TRANSFERS.find((t) => t.id === id);
+  const { transfers } = useTransferStore();
+  const transfer = transfers.find((t) => t.id === id);
 
   if (!transfer) {
     return (
@@ -57,7 +58,7 @@ export default function TransferDetailPage({ params }: { params: Promise<{ id: s
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                {transfer.flagged && <Flag className="w-4 h-4 text-red-500" />}
+                {transfer.flagged && <Flag className="w-4 h-4 text-amber-500" />}
                 <StatusBadge status={transfer.status} />
               </div>
             </div>
@@ -68,6 +69,8 @@ export default function TransferDetailPage({ params }: { params: Promise<{ id: s
                 { label: 'Department', value: transfer.department },
                 { label: 'Partner', value: transfer.partner || 'N/A' },
                 { label: 'Reason', value: transfer.reason },
+                ...(transfer.riskScore !== undefined ? [{ label: 'Risk Score', value: `${transfer.riskScore}/100` }] : []),
+                ...(transfer.reviewedBy ? [{ label: 'Reviewed by', value: transfer.reviewedBy }] : []),
               ].map(({ label, value }) => (
                 <div key={label}>
                   <p className="text-xs font-medium text-gray-400 mb-0.5">{label}</p>
@@ -78,21 +81,34 @@ export default function TransferDetailPage({ params }: { params: Promise<{ id: s
 
             {transfer.notes && (
               <div className="mt-4 pt-4 border-t border-gray-100">
-                <p className="text-xs font-medium text-gray-400 mb-1">Notes</p>
+                <p className="text-xs font-medium text-gray-400 mb-1">Agent Notes</p>
                 <p className="text-sm text-gray-700">{transfer.notes}</p>
               </div>
             )}
 
+            {(transfer.flagReasons ?? []).length > 0 && (
+              <div className="mt-4 pt-4 border-t border-gray-100 space-y-1.5">
+                <p className="text-xs font-semibold text-amber-700">Flag reasons:</p>
+                {transfer.flagReasons!.map((r, i) => (
+                  <div key={i} className="flex items-start gap-2 text-xs text-amber-800 bg-amber-50 rounded px-2 py-1.5 border border-amber-200">
+                    <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5 text-amber-500" />
+                    {r}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {transfer.managerNote && (
+              <div className="mt-4 pt-4 border-t border-gray-100">
+                <p className="text-xs font-semibold text-red-600 mb-1.5">Manager feedback:</p>
+                <div className="flex items-start gap-2 text-sm text-red-800 bg-red-50 rounded px-3 py-2.5 border border-red-200">
+                  <MessageSquare className="w-4 h-4 shrink-0 mt-0.5 text-red-400" />
+                  {transfer.managerNote}
+                </div>
+              </div>
+            )}
+
             <div className="flex gap-2 mt-5 pt-4 border-t border-gray-100">
-              {transfer.status === 'pending_review' && (
-                <>
-                  <Button size="sm">Approve</Button>
-                  <Button size="sm" variant="danger">Flag as Invalid</Button>
-                </>
-              )}
-              {transfer.status === 'escalated' && (
-                <Button size="sm" variant="secondary">Mark Resolved</Button>
-              )}
               <Button size="sm" variant="ghost" onClick={() => router.back()}>Back</Button>
             </div>
           </Card>

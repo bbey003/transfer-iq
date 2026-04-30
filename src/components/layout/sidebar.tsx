@@ -15,6 +15,8 @@ import {
   ChevronDown,
   ChevronLeft,
   LogOut,
+  BookOpen,
+  Phone,
 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -22,6 +24,8 @@ const NAV_ITEMS = [
   { href: '/dashboard', label: 'Overview', icon: LayoutDashboard, roles: ['agent', 'manager', 'admin'] },
   { href: '/log-transfer', label: 'Log Transfer', icon: ArrowRightLeft, roles: ['agent', 'manager', 'admin'] },
   { href: '/history', label: 'History', icon: History, roles: ['agent', 'manager', 'admin'] },
+  { href: '/knowledge', label: 'Knowledge Centre', icon: BookOpen, roles: ['agent', 'manager', 'admin'] },
+  { href: '/phonebook', label: 'Phone Book', icon: Phone, roles: ['agent', 'manager', 'admin'] },
   { href: '/team-insights', label: 'Team Insights', icon: Users, roles: ['manager', 'admin'] },
   { href: '/coaching', label: 'Coaching', icon: GraduationCap, roles: ['manager', 'admin'] },
   { href: '/feedback', label: 'Feedback', icon: MessageSquare, roles: ['manager', 'admin'] },
