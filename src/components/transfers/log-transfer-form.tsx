@@ -4,10 +4,17 @@ import { useState } from 'react';
 import { useAuth } from '@/lib/auth-context';
 import { useTransferStore } from '@/lib/transfer-store';
 import type { PrecomputedAnalysis } from '@/lib/transfer-store';
+import { useQuickNotes } from '@/lib/quick-notes';
+import type { NoteTemplate } from '@/lib/quick-notes';
 import { DEPARTMENTS, PARTNERS, TRANSFER_REASONS } from '@/lib/mock-data';
 import { Input, Textarea, Select } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { BookOpen, ArrowRight, Calendar, User, CheckCircle, AlertCircle } from 'lucide-react';
+import { Modal } from '@/components/ui/modal';
+import { useToast } from '@/components/ui/toast';
+import {
+  BookOpen, ArrowRight, Calendar, User, CheckCircle, AlertCircle,
+  Zap, Plus, Pencil, Trash2, ChevronDown, ChevronUp,
+} from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface FormState {
@@ -62,13 +69,272 @@ async function callAiAnalysis(
   }
 }
 
+// ---------- Template manager modal ----------
+
+function ManageTemplatesModal({
+  open,
+  onClose,
+  templates,
+  onAdd,
+  onUpdate,
+  onDelete,
+}: {
+  open: boolean;
+  onClose: () => void;
+  templates: NoteTemplate[];
+  onAdd: (t: Omit<NoteTemplate, 'id'>) => void;
+  onUpdate: (id: string, updates: Partial<Omit<NoteTemplate, 'id'>>) => void;
+  onDelete: (id: string) => void;
+}) {
+  const { success } = useToast();
+  const [editId, setEditId] = useState<string | null>(null);
+  const [addOpen, setAddOpen] = useState(false);
+  const [form, setForm] = useState({ label: '', department: '', text: '' });
+
+  const openEdit = (t: NoteTemplate) => {
+    setEditId(t.id);
+    setForm({ label: t.label, department: t.department, text: t.text });
+    setAddOpen(false);
+  };
+
+  const openAdd = () => {
+    setEditId(null);
+    setForm({ label: '', department: '', text: '' });
+    setAddOpen(true);
+  };
+
+  const handleSave = () => {
+    if (!form.label.trim() || !form.text.trim()) return;
+    if (editId) {
+      onUpdate(editId, { label: form.label.trim(), department: form.department, text: form.text.trim() });
+      success('Template updated');
+      setEditId(null);
+    } else {
+      onAdd({ label: form.label.trim(), department: form.department, text: form.text.trim() });
+      success('Template saved');
+      setAddOpen(false);
+    }
+    setForm({ label: '', department: '', text: '' });
+  };
+
+  const handleDelete = (id: string) => {
+    onDelete(id);
+    if (editId === id) setEditId(null);
+    success('Template deleted');
+  };
+
+  return (
+    <Modal open={open} onClose={onClose} title="Manage Note Templates" size="lg">
+      <div className="space-y-4 max-h-[65vh] overflow-y-auto pr-1">
+        {/* Template list */}
+        {templates.length === 0 ? (
+          <p className="text-sm text-gray-400 text-center py-4">No templates yet. Add one below.</p>
+        ) : (
+          <div className="space-y-2">
+            {templates.map((t) => (
+              <div key={t.id}>
+                <div className={cn(
+                  'border rounded-xl px-4 py-3 transition-colors',
+                  editId === t.id ? 'border-blue-300 bg-blue-50/30' : 'border-gray-200 bg-white hover:bg-gray-50/50'
+                )}>
+                  <div className="flex items-start gap-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-0.5">
+                        <p className="text-sm font-semibold text-gray-900">{t.label}</p>
+                        {t.department && (
+                          <span className="text-xs bg-blue-50 text-blue-600 border border-blue-100 rounded px-1.5 py-0.5">{t.department}</span>
+                        )}
+                      </div>
+                      <p className="text-xs text-gray-500 line-clamp-2 leading-relaxed">{t.text}</p>
+                    </div>
+                    <div className="flex items-center gap-0.5 shrink-0">
+                      <button
+                        onClick={() => editId === t.id ? setEditId(null) : openEdit(t)}
+                        className="p-1.5 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600"
+                        aria-label="Edit"
+                      >
+                        <Pencil className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        onClick={() => handleDelete(t.id)}
+                        className="p-1.5 rounded hover:bg-red-50 text-gray-400 hover:text-red-500"
+                        aria-label="Delete"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Inline edit form */}
+                  {editId === t.id && (
+                    <div className="mt-3 pt-3 border-t border-blue-100 space-y-2">
+                      <Input
+                        label="Label"
+                        value={form.label}
+                        onChange={(e) => setForm((f) => ({ ...f, label: e.target.value }))}
+                        placeholder="Short name for this template"
+                      />
+                      <Select
+                        label="Department (optional)"
+                        value={form.department}
+                        onChange={(e) => setForm((f) => ({ ...f, department: e.target.value }))}
+                        options={[
+                          { value: '', label: 'All departments' },
+                          ...DEPARTMENTS.filter((d) => d.status === 'active').map((d) => ({ value: d.name, label: d.name })),
+                        ]}
+                      />
+                      <Textarea
+                        label="Note text"
+                        rows={3}
+                        value={form.text}
+                        onChange={(e) => setForm((f) => ({ ...f, text: e.target.value }))}
+                        placeholder="The note text that will fill in the field..."
+                      />
+                      <div className="flex gap-2 pt-1">
+                        <Button variant="outline" size="sm" className="flex-1" onClick={() => setEditId(null)}>Cancel</Button>
+                        <Button size="sm" className="flex-1" onClick={handleSave} disabled={!form.label.trim() || !form.text.trim()}>
+                          Save Changes
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Add new */}
+        {!editId && (
+          <div className="border border-dashed border-gray-300 rounded-xl">
+            {addOpen ? (
+              <div className="p-4 space-y-2">
+                <p className="text-xs font-semibold text-gray-600 mb-2">New template</p>
+                <Input
+                  label="Label"
+                  value={form.label}
+                  onChange={(e) => setForm((f) => ({ ...f, label: e.target.value }))}
+                  placeholder="e.g. Fraud — Unrecognised transaction"
+                />
+                <Select
+                  label="Department (optional)"
+                  value={form.department}
+                  onChange={(e) => setForm((f) => ({ ...f, department: e.target.value }))}
+                  options={[
+                    { value: '', label: 'All departments' },
+                    ...DEPARTMENTS.filter((d) => d.status === 'active').map((d) => ({ value: d.name, label: d.name })),
+                  ]}
+                />
+                <Textarea
+                  label="Note text"
+                  rows={3}
+                  value={form.text}
+                  onChange={(e) => setForm((f) => ({ ...f, text: e.target.value }))}
+                  placeholder="The note text that will fill in the field..."
+                  hint={`${form.text.length} characters`}
+                />
+                <div className="flex gap-2 pt-1">
+                  <Button variant="outline" size="sm" className="flex-1" onClick={() => setAddOpen(false)}>Cancel</Button>
+                  <Button size="sm" className="flex-1" onClick={handleSave} disabled={!form.label.trim() || !form.text.trim()}>
+                    Save Template
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <button
+                onClick={openAdd}
+                className="w-full flex items-center gap-2 px-4 py-3 text-sm text-gray-500 hover:text-gray-700 hover:bg-gray-50 rounded-xl transition-colors"
+              >
+                <Plus className="w-4 h-4" />
+                Add new template
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+    </Modal>
+  );
+}
+
+// ---------- Quick fill chips ----------
+
+function QuickFillBar({
+  templates,
+  department,
+  onSelect,
+  onManage,
+}: {
+  templates: NoteTemplate[];
+  department: string;
+  onSelect: (text: string) => void;
+  onManage: () => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+
+  const relevant = department
+    ? templates.filter((t) => !t.department || t.department === department)
+    : templates;
+
+  const visible = expanded ? relevant : relevant.slice(0, 4);
+  const hasMore = relevant.length > 4;
+
+  if (templates.length === 0) return null;
+
+  return (
+    <div className="mt-2">
+      <div className="flex items-center gap-1.5 mb-2">
+        <Zap className="w-3 h-3 text-blue-500 shrink-0" />
+        <span className="text-xs font-medium text-gray-500">Quick fill</span>
+        <button
+          onClick={onManage}
+          className="ml-auto text-xs text-gray-400 hover:text-blue-600 transition-colors"
+        >
+          Manage
+        </button>
+      </div>
+      {relevant.length === 0 ? (
+        <p className="text-xs text-gray-400 italic">No templates for this department yet.</p>
+      ) : (
+        <div className="flex flex-wrap gap-1.5">
+          {visible.map((t) => (
+            <button
+              key={t.id}
+              onClick={() => onSelect(t.text)}
+              className="inline-flex items-center text-xs bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-100 hover:border-blue-200 rounded-lg px-2.5 py-1 transition-colors text-left max-w-full"
+              title={t.text}
+            >
+              <span className="truncate max-w-[200px]">{t.label}</span>
+            </button>
+          ))}
+          {hasMore && (
+            <button
+              onClick={() => setExpanded((v) => !v)}
+              className="inline-flex items-center gap-0.5 text-xs text-gray-400 hover:text-gray-600 px-1.5 py-1 transition-colors"
+            >
+              {expanded ? (
+                <><ChevronUp className="w-3 h-3" /> less</>
+              ) : (
+                <><ChevronDown className="w-3 h-3" /> +{relevant.length - 4} more</>
+              )}
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---------- Main form ----------
+
 export function LogTransferForm({ onSuccess }: { onSuccess?: () => void }) {
   const { user } = useAuth();
   const { submitTransfer, articles } = useTransferStore();
+  const { templates, addTemplate, updateTemplate, deleteTemplate } = useQuickNotes(user?.id ?? '');
   const [form, setForm] = useState<FormState>(EMPTY);
   const [errors, setErrors] = useState<Partial<FormState>>({});
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<{ status: string; flagReasons: string[]; aiExplanation?: string } | null>(null);
+  const [manageOpen, setManageOpen] = useState(false);
 
   const now = new Date();
   const dateStr = now.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
@@ -110,7 +376,6 @@ export function LogTransferForm({ onSuccess }: { onSuccess?: () => void }) {
       agentColor,
     };
 
-    // Try AI analysis; fall back to rule-based engine silently on failure
     const article = articles.find((a) => a.isActive && a.department === form.department) ?? null;
     const precomputed = await callAiAnalysis(
       form.department, form.partner, form.reason, form.notes, article,
@@ -169,91 +434,111 @@ export function LogTransferForm({ onSuccess }: { onSuccess?: () => void }) {
   }
 
   return (
-    <div className="space-y-4">
-      {/* Auto-captured info */}
-      <div className="flex items-center gap-3 text-xs text-gray-500 bg-gray-50 rounded-lg px-3 py-2 flex-wrap">
-        <div className="flex items-center gap-1.5">
-          <Calendar className="w-3.5 h-3.5" />
-          <span>Auto-captured: {dateStr} {timeStr}</span>
-        </div>
-        <div className="flex items-center gap-1.5 ml-auto">
-          <User className="w-3.5 h-3.5" />
-          <span>{user?.name} ({user?.role === 'agent' ? (user?.brid ?? user?.aid) : user?.aid})</span>
-        </div>
-      </div>
-
-      {/* Knowledge tip */}
-      {tip && (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-          <div className="flex items-start gap-2">
-            <BookOpen className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
-            <div className="min-w-0">
-              <p className="text-xs font-semibold text-blue-800 mb-0.5">Before you transfer</p>
-              <p className="text-xs text-blue-700 leading-relaxed">{tip.note}</p>
-              <button className="flex items-center gap-1 text-xs text-blue-600 font-medium mt-1.5 hover:underline">
-                View knowledge centre <ArrowRight className="w-3 h-3" />
-              </button>
-            </div>
+    <>
+      <div className="space-y-4">
+        {/* Auto-captured info */}
+        <div className="flex items-center gap-3 text-xs text-gray-500 bg-gray-50 rounded-lg px-3 py-2 flex-wrap">
+          <div className="flex items-center gap-1.5">
+            <Calendar className="w-3.5 h-3.5" />
+            <span>Auto-captured: {dateStr} {timeStr}</span>
+          </div>
+          <div className="flex items-center gap-1.5 ml-auto">
+            <User className="w-3.5 h-3.5" />
+            <span>{user?.name} ({user?.role === 'agent' ? (user?.brid ?? user?.aid) : user?.aid})</span>
           </div>
         </div>
-      )}
 
-      <div className="grid grid-cols-2 gap-3">
-        <Input
-          label="AID"
-          required
-          placeholder="AID-87322"
-          value={form.aid}
-          onChange={set('aid')}
-          error={errors.aid}
-        />
+        {/* Knowledge tip */}
+        {tip && (
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+            <div className="flex items-start gap-2">
+              <BookOpen className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
+              <div className="min-w-0">
+                <p className="text-xs font-semibold text-blue-800 mb-0.5">Before you transfer</p>
+                <p className="text-xs text-blue-700 leading-relaxed">{tip.note}</p>
+                <button className="flex items-center gap-1 text-xs text-blue-600 font-medium mt-1.5 hover:underline">
+                  View knowledge centre <ArrowRight className="w-3 h-3" />
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div className="grid grid-cols-2 gap-3">
+          <Input
+            label="AID"
+            required
+            placeholder="AID-87322"
+            value={form.aid}
+            onChange={set('aid')}
+            error={errors.aid}
+          />
+          <Select
+            label="Department"
+            required
+            placeholder="Select department"
+            value={form.department}
+            onChange={set('department')}
+            error={errors.department}
+            options={DEPARTMENTS.filter((d) => d.status === 'active').map((d) => ({ value: d.name, label: d.name }))}
+          />
+        </div>
+
         <Select
-          label="Department"
-          required
-          placeholder="Select department"
-          value={form.department}
-          onChange={set('department')}
-          error={errors.department}
-          options={DEPARTMENTS.filter((d) => d.status === 'active').map((d) => ({ value: d.name, label: d.name }))}
+          label="Partner"
+          placeholder="N/A"
+          value={form.partner}
+          onChange={set('partner')}
+          options={[
+            { value: '', label: 'N/A' },
+            ...PARTNERS.filter((p) => p.status === 'active').map((p) => ({ value: p.name, label: p.name })),
+          ]}
         />
+
+        <Select
+          label="Transfer Reason"
+          required
+          placeholder="Select reason"
+          value={form.reason}
+          onChange={set('reason')}
+          error={errors.reason}
+          options={TRANSFER_REASONS.filter((r) => r.status === 'active').map((r) => ({ value: r.label, label: r.label }))}
+        />
+
+        {/* Notes + quick fill */}
+        <div>
+          <Textarea
+            label="Notes"
+            placeholder="Describe what you tried and why this transfer is needed..."
+            value={form.notes}
+            onChange={set('notes')}
+            rows={3}
+            hint={`${form.notes.length} characters`}
+            maxLength={500}
+          />
+          <QuickFillBar
+            templates={templates}
+            department={form.department}
+            onSelect={(text) => setForm((f) => ({ ...f, notes: text }))}
+            onManage={() => setManageOpen(true)}
+          />
+        </div>
+
+        <div className="flex items-center gap-3 pt-1">
+          <Button size="sm" onClick={handleSubmit} loading={submitting} className="flex-1">
+            {submitting ? 'Analysing...' : 'Submit Transfer'}
+          </Button>
+        </div>
       </div>
 
-      <Select
-        label="Partner"
-        placeholder="N/A"
-        value={form.partner}
-        onChange={set('partner')}
-        options={[
-          { value: '', label: 'N/A' },
-          ...PARTNERS.filter((p) => p.status === 'active').map((p) => ({ value: p.name, label: p.name })),
-        ]}
+      <ManageTemplatesModal
+        open={manageOpen}
+        onClose={() => setManageOpen(false)}
+        templates={templates}
+        onAdd={addTemplate}
+        onUpdate={updateTemplate}
+        onDelete={deleteTemplate}
       />
-
-      <Select
-        label="Transfer Reason"
-        required
-        placeholder="Select reason"
-        value={form.reason}
-        onChange={set('reason')}
-        error={errors.reason}
-        options={TRANSFER_REASONS.filter((r) => r.status === 'active').map((r) => ({ value: r.label, label: r.label }))}
-      />
-
-      <Textarea
-        label="Notes"
-        placeholder="Describe what you tried and why this transfer is needed..."
-        value={form.notes}
-        onChange={set('notes')}
-        rows={3}
-        hint={`${form.notes.length} characters`}
-        maxLength={500}
-      />
-
-      <div className="flex items-center gap-3 pt-1">
-        <Button size="sm" onClick={handleSubmit} loading={submitting} className="flex-1">
-          {submitting ? 'Analysing...' : 'Submit Transfer'}
-        </Button>
-      </div>
-    </div>
+    </>
   );
 }
