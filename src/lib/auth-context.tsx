@@ -19,6 +19,19 @@ const MOCK_USERS: Record<string, { password: string; user: User }> = {
     password: 'manager123',
     user: CURRENT_USER,
   },
+  'jordan.mills@transferiq.internal': {
+    password: 'manager123',
+    user: {
+      id: 'u-002',
+      name: 'Jordan Mills',
+      email: 'jordan.mills@transferiq.internal',
+      role: 'manager',
+      aid: 'AID-00002',
+      department: 'Operations',
+      status: 'active',
+      createdAt: '2024-01-15',
+    },
+  },
   'jessica.lee@transferiq.internal': {
     password: 'agent123',
     user: {
@@ -28,6 +41,22 @@ const MOCK_USERS: Record<string, { password: string; user: User }> = {
       role: 'agent',
       aid: 'AID-87321',
       brid: 'BRID-10421',
+      managerId: 'u-001',
+      department: 'Operations',
+      status: 'active',
+      createdAt: '2024-02-01',
+    },
+  },
+  'tom.bradley@transferiq.internal': {
+    password: 'agent123',
+    user: {
+      id: 'u-201',
+      name: 'Tom Bradley',
+      email: 'tom.bradley@transferiq.internal',
+      role: 'agent',
+      aid: 'AID-87421',
+      brid: 'BRID-20421',
+      managerId: 'u-002',
       department: 'Operations',
       status: 'active',
       createdAt: '2024-02-01',

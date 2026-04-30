@@ -1,17 +1,21 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import type { Transfer } from '@/types';
+import type { Transfer, AgentSuggestion, CallVolume } from '@/types';
 import type { TransferConstraint } from '@/lib/constraints';
-import { SEED_TRANSFERS, DEPARTMENTS, PARTNERS, TRANSFER_REASONS } from '@/lib/mock-data';
+import { SEED_TRANSFERS, DEPARTMENTS, PARTNERS, TRANSFER_REASONS, SEED_SUGGESTIONS, SEED_CALL_VOLUMES } from '@/lib/mock-data';
 import { DEFAULT_CONSTRAINTS, analyzeTransfer, getAgentsNeedingCoaching } from '@/lib/constraints';
 
 const STORE_KEY = 'tiq_transfers';
 const CONSTRAINTS_KEY = 'tiq_constraints';
+const SUGGESTIONS_KEY = 'tiq_suggestions';
+const CALL_VOLUMES_KEY = 'tiq_call_volumes';
 
 interface TransferStore {
   transfers: Transfer[];
   constraints: TransferConstraint[];
+  suggestions: AgentSuggestion[];
+  callVolumes: CallVolume[];
 
   // Agent actions
   submitTransfer: (data: {
@@ -26,15 +30,28 @@ interface TransferStore {
     agentColor: string;
   }) => { transfer: Transfer; flagReasons: string[]; status: Transfer['status'] };
 
+  submitSuggestion: (data: {
+    agentId: string;
+    agentName: string;
+    agentInitials: string;
+    agentColor: string;
+    category: AgentSuggestion['category'];
+    message: string;
+  }) => void;
+
   // Manager review actions
   markValid: (transferId: string, reviewerName: string) => void;
   markInvalid: (transferId: string, reviewerName: string, managerNote?: string) => void;
+  markSuggestionRead: (id: string) => void;
+
+  // Call volume
+  setCallVolume: (managerId: string, weekOf: string, totalCalls: number) => void;
 
   // Constraint management
   updateConstraints: (constraints: TransferConstraint[]) => void;
   toggleConstraint: (id: string) => void;
 
-  // Derived stats (all computed live from transfers)
+  // Derived stats
   stats: {
     totalThisWeek: number;
     pendingReview: number;
@@ -59,7 +76,6 @@ function computeStats(transfers: Transfer[]) {
   const invalidCount = transfers.filter((t) => t.status === 'invalid').length;
   const validCount = transfers.filter((t) => t.status === 'completed').length;
 
-  // Top dept by volume this week
   const deptCounts: Record<string, number> = {};
   for (const t of week) {
     deptCounts[t.department] = (deptCounts[t.department] ?? 0) + 1;
@@ -70,11 +86,20 @@ function computeStats(transfers: Transfer[]) {
   return { totalThisWeek, pendingReview, invalidCount, validCount, topDept, topDeptPct };
 }
 
+export function getWeekMonday(date = new Date()): string {
+  const d = new Date(date);
+  const day = d.getDay();
+  const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+  d.setDate(diff);
+  return d.toISOString().split('T')[0];
+}
+
 export function TransferStoreProvider({ children }: { children: React.ReactNode }) {
   const [transfers, setTransfers] = useState<Transfer[]>([]);
   const [constraints, setConstraints] = useState<TransferConstraint[]>(DEFAULT_CONSTRAINTS);
+  const [suggestions, setSuggestions] = useState<AgentSuggestion[]>([]);
+  const [callVolumes, setCallVolumesState] = useState<CallVolume[]>([]);
 
-  // Hydrate from localStorage or fall back to seed data
   useEffect(() => {
     try {
       const raw = localStorage.getItem(STORE_KEY);
@@ -82,8 +107,16 @@ export function TransferStoreProvider({ children }: { children: React.ReactNode 
 
       const rawC = localStorage.getItem(CONSTRAINTS_KEY);
       if (rawC) setConstraints(JSON.parse(rawC) as TransferConstraint[]);
+
+      const rawS = localStorage.getItem(SUGGESTIONS_KEY);
+      setSuggestions(rawS ? (JSON.parse(rawS) as AgentSuggestion[]) : SEED_SUGGESTIONS);
+
+      const rawV = localStorage.getItem(CALL_VOLUMES_KEY);
+      setCallVolumesState(rawV ? (JSON.parse(rawV) as CallVolume[]) : SEED_CALL_VOLUMES);
     } catch {
       setTransfers(SEED_TRANSFERS);
+      setSuggestions(SEED_SUGGESTIONS);
+      setCallVolumesState(SEED_CALL_VOLUMES);
     }
   }, []);
 
@@ -95,6 +128,16 @@ export function TransferStoreProvider({ children }: { children: React.ReactNode 
   const persistConstraints = useCallback((next: TransferConstraint[]) => {
     setConstraints(next);
     try { localStorage.setItem(CONSTRAINTS_KEY, JSON.stringify(next)); } catch { /* quota */ }
+  }, []);
+
+  const persistSuggestions = useCallback((next: AgentSuggestion[]) => {
+    setSuggestions(next);
+    try { localStorage.setItem(SUGGESTIONS_KEY, JSON.stringify(next)); } catch { /* quota */ }
+  }, []);
+
+  const persistCallVolumes = useCallback((next: CallVolume[]) => {
+    setCallVolumesState(next);
+    try { localStorage.setItem(CALL_VOLUMES_KEY, JSON.stringify(next)); } catch { /* quota */ }
   }, []);
 
   const submitTransfer = useCallback((data: {
@@ -123,6 +166,19 @@ export function TransferStoreProvider({ children }: { children: React.ReactNode 
     return { transfer, flagReasons: analysis.flagReasons, status: analysis.status };
   }, [transfers, constraints, persist]);
 
+  const submitSuggestion = useCallback((data: {
+    agentId: string; agentName: string; agentInitials: string; agentColor: string;
+    category: AgentSuggestion['category']; message: string;
+  }) => {
+    const suggestion: AgentSuggestion = {
+      id: `sg-${Date.now()}`,
+      ...data,
+      createdAt: new Date().toISOString(),
+      isRead: false,
+    };
+    persistSuggestions([suggestion, ...suggestions]);
+  }, [suggestions, persistSuggestions]);
+
   const markValid = useCallback((transferId: string, reviewerName: string) => {
     persist(transfers.map((t) =>
       t.id === transferId
@@ -139,6 +195,26 @@ export function TransferStoreProvider({ children }: { children: React.ReactNode 
     ));
   }, [transfers, persist]);
 
+  const markSuggestionRead = useCallback((id: string) => {
+    persistSuggestions(suggestions.map((s) => s.id === id ? { ...s, isRead: true } : s));
+  }, [suggestions, persistSuggestions]);
+
+  const setCallVolume = useCallback((managerId: string, weekOf: string, totalCalls: number) => {
+    const existing = callVolumes.find((v) => v.managerId === managerId && v.weekOf === weekOf);
+    let next: CallVolume[];
+    if (existing) {
+      next = callVolumes.map((v) =>
+        v.id === existing.id ? { ...v, totalCalls, enteredAt: new Date().toISOString() } : v
+      );
+    } else {
+      next = [
+        { id: `cv-${Date.now()}`, managerId, weekOf, totalCalls, enteredAt: new Date().toISOString() },
+        ...callVolumes,
+      ];
+    }
+    persistCallVolumes(next);
+  }, [callVolumes, persistCallVolumes]);
+
   const updateConstraints = useCallback((next: TransferConstraint[]) => {
     persistConstraints(next);
   }, [persistConstraints]);
@@ -152,8 +228,10 @@ export function TransferStoreProvider({ children }: { children: React.ReactNode 
 
   return (
     <Ctx.Provider value={{
-      transfers, constraints,
-      submitTransfer, markValid, markInvalid,
+      transfers, constraints, suggestions, callVolumes,
+      submitTransfer, submitSuggestion,
+      markValid, markInvalid, markSuggestionRead,
+      setCallVolume,
       updateConstraints, toggleConstraint,
       stats, agentsNeedingCoaching,
     }}>
@@ -168,7 +246,7 @@ export function useTransferStore() {
   return ctx;
 }
 
-// Helpers for chart data computed from live transfers
+// Helpers for chart data
 export function useDeptChartData(transfers: Transfer[]) {
   const counts: Record<string, number> = {};
   for (const t of transfers) {

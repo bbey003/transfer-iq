@@ -1,232 +1,329 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { TopBar } from '@/components/layout/topbar';
 import { Card } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Modal } from '@/components/ui/modal';
+import { useToast } from '@/components/ui/toast';
 import { cn } from '@/lib/utils';
-import { Search, Phone, Mail, Building2, Globe, User, Copy, CheckCheck } from 'lucide-react';
+import { Search, Phone, Globe, Building2, Plus, Pencil, Trash2, Copy, CheckCheck } from 'lucide-react';
 
-interface Contact {
+interface PhoneEntry {
   id: string;
   name: string;
-  role: string;
-  department?: string;
-  extension?: string;
-  directLine?: string;
-  email?: string;
+  number: string;
   type: 'internal' | 'external';
-  partner?: string;
+  category?: string;
   notes?: string;
-  initials: string;
-  color: string;
+  isCustom?: boolean;
 }
 
-const CONTACTS: Contact[] = [
-  // Internal — Team
-  { id: 'c-001', name: 'Alex Carter', role: 'Team Manager', department: 'Operations', extension: '4001', email: 'alex.carter@transferiq.internal', type: 'internal', initials: 'AC', color: 'bg-blue-500' },
-  { id: 'c-002', name: 'Jessica Lee', role: 'Customer Service Agent', department: 'Operations', extension: '4021', email: 'jessica.lee@transferiq.internal', type: 'internal', initials: 'JL', color: 'bg-purple-500' },
-  { id: 'c-003', name: 'Michael Chen', role: 'Customer Service Agent', department: 'Operations', extension: '4022', email: 'michael.chen@transferiq.internal', type: 'internal', initials: 'MC', color: 'bg-teal-500' },
-  { id: 'c-004', name: 'Emily Rodriguez', role: 'Customer Service Agent', department: 'Operations', extension: '4023', email: 'emily.rodriguez@transferiq.internal', type: 'internal', initials: 'ER', color: 'bg-orange-500' },
-  { id: 'c-005', name: 'David Park', role: 'Customer Service Agent', department: 'Operations', extension: '4024', email: 'david.park@transferiq.internal', type: 'internal', initials: 'DP', color: 'bg-blue-500' },
-  { id: 'c-006', name: 'Lisa Anderson', role: 'Customer Service Agent', department: 'Operations', extension: '4025', email: 'lisa.anderson@transferiq.internal', type: 'internal', initials: 'LA', color: 'bg-pink-500' },
-  { id: 'c-007', name: 'Ryan Kim', role: 'Customer Service Agent', department: 'Operations', extension: '4026', email: 'ryan.kim@transferiq.internal', type: 'internal', initials: 'RK', color: 'bg-green-500' },
-  { id: 'c-008', name: 'Sarah Torres', role: 'Customer Service Agent', department: 'Operations', extension: '4027', email: 'sarah.torres@transferiq.internal', type: 'internal', initials: 'ST', color: 'bg-indigo-500' },
-  // Internal — Departments
-  { id: 'c-010', name: 'Fraud Team', role: 'Department Queue', department: 'Fraud', extension: '5001', type: 'internal', notes: 'Available Mon–Fri 07:00–21:00, Sat 08:00–18:00', initials: 'FT', color: 'bg-red-500' },
-  { id: 'c-011', name: 'Deposits Team', role: 'Department Queue', department: 'Deposits', extension: '5002', type: 'internal', notes: 'Available Mon–Fri 08:00–20:00', initials: 'DT', color: 'bg-emerald-600' },
-  { id: 'c-012', name: 'Credit Team', role: 'Department Queue', department: 'Credit', extension: '5003', type: 'internal', notes: 'Available Mon–Fri 08:00–18:00', initials: 'CT', color: 'bg-orange-600' },
-  { id: 'c-013', name: 'Top of Queue', role: 'Priority Handling', department: 'Top of Queue', extension: '5000', type: 'internal', notes: 'Priority queue — use only for urgent or vulnerable customers', initials: 'TQ', color: 'bg-blue-700' },
-  { id: 'c-014', name: 'Manager On Duty', role: 'Management', department: 'Manager', extension: '5099', type: 'internal', notes: 'Escalations and manager-requested calls only', initials: 'MD', color: 'bg-slate-600' },
-  // External — Partners
-  { id: 'c-020', name: 'Barclaycard', role: 'Credit Card Partner', partner: 'Barclaycard', directLine: '0800 161 5220', type: 'external', notes: 'Mon–Fri 08:00–20:00, Sat 09:00–17:00. Calls are recorded.', initials: 'BC', color: 'bg-blue-600' },
-  { id: 'c-021', name: 'PayPlan', role: 'Debt Management Partner', partner: 'PayPlan', directLine: '0800 280 2816', type: 'external', notes: 'Free debt advice. Mon–Fri 08:30–18:00.', initials: 'PP', color: 'bg-violet-600' },
-  { id: 'c-022', name: 'Transunion', role: 'Credit Bureau Partner', partner: 'Transunion', directLine: '0330 024 7574', type: 'external', notes: 'Credit file disputes and fraud victim support. Mon–Fri 09:00–17:30.', initials: 'TU', color: 'bg-teal-600' },
-  { id: 'c-023', name: 'ClearScore', role: 'Credit Score Partner', partner: 'ClearScore', directLine: '0800 086 9360', type: 'external', notes: 'Credit score queries and report disputes. Available 24/7 via online support.', initials: 'CS', color: 'bg-green-600' },
-  { id: 'c-024', name: 'Experian', role: 'Credit Bureau', partner: 'Experian', directLine: '0344 481 0800', type: 'external', notes: 'Credit report queries and statutory credit report requests. Mon–Fri 08:00–18:00.', initials: 'EX', color: 'bg-purple-600' },
+const DEFAULT_ENTRIES: PhoneEntry[] = [
+  // Internal department queues
+  { id: 'int-001', name: 'Fraud Team', number: 'Ext. 5001', type: 'internal', category: 'Department', notes: 'Mon–Fri 07:00–21:00, Sat 08:00–18:00' },
+  { id: 'int-002', name: 'Deposits Team', number: 'Ext. 5002', type: 'internal', category: 'Department', notes: 'Mon–Fri 08:00–20:00' },
+  { id: 'int-003', name: 'Credit Team', number: 'Ext. 5003', type: 'internal', category: 'Department', notes: 'Mon–Fri 08:00–18:00' },
+  { id: 'int-004', name: 'Partners Team', number: 'Ext. 5004', type: 'internal', category: 'Department', notes: 'Mon–Fri 08:00–19:00' },
+  { id: 'int-005', name: 'Top of Queue', number: 'Ext. 5000', type: 'internal', category: 'Priority', notes: 'Priority queue — use for urgent or vulnerable customers only' },
+  { id: 'int-006', name: 'Manager on Duty', number: 'Ext. 5099', type: 'internal', category: 'Management', notes: 'For complaint escalations and manager-requested transfers' },
+  { id: 'int-007', name: 'IT Support', number: 'Ext. 5200', type: 'internal', category: 'Support', notes: 'System issues and access requests. Mon–Fri 08:00–17:00' },
+  { id: 'int-008', name: 'Compliance', number: 'Ext. 5300', type: 'internal', category: 'Support', notes: 'Regulatory queries and FCA-related escalations' },
+  // External partners
+  { id: 'ext-001', name: 'Barclaycard', number: '0800 161 5220', type: 'external', category: 'Partner', notes: 'Mon–Fri 08:00–20:00, Sat 09:00–17:00' },
+  { id: 'ext-002', name: 'PayPlan', number: '0800 280 2816', type: 'external', category: 'Partner', notes: 'Free debt advice. Mon–Fri 08:30–18:00' },
+  { id: 'ext-003', name: 'Transunion', number: '0330 024 7574', type: 'external', category: 'Partner', notes: 'Credit file disputes and fraud victim support. Mon–Fri 09:00–17:30' },
+  { id: 'ext-004', name: 'ClearScore', number: '0800 086 9360', type: 'external', category: 'Partner', notes: 'Credit score queries. Available 24/7 via online support' },
+  { id: 'ext-005', name: 'Experian', number: '0344 481 0800', type: 'external', category: 'Partner', notes: 'Credit reports. Mon–Fri 08:00–18:00' },
 ];
+
+const STORAGE_KEY = 'tiq_phonebook_custom';
 
 function CopyButton({ value }: { value: string }) {
   const [copied, setCopied] = useState(false);
-  const handleCopy = () => {
-    navigator.clipboard.writeText(value);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
-  };
   return (
-    <button onClick={handleCopy} className="ml-1 p-0.5 rounded text-gray-400 hover:text-gray-600 transition-colors" aria-label="Copy">
+    <button
+      onClick={() => { navigator.clipboard.writeText(value); setCopied(true); setTimeout(() => setCopied(false), 1500); }}
+      className="ml-1 p-0.5 rounded text-gray-400 hover:text-gray-600 transition-colors"
+      aria-label="Copy"
+    >
       {copied ? <CheckCheck className="w-3 h-3 text-emerald-500" /> : <Copy className="w-3 h-3" />}
     </button>
   );
 }
 
-function ContactCard({ contact }: { contact: Contact }) {
+function EntryRow({ entry, onEdit, onDelete }: { entry: PhoneEntry; onEdit?: () => void; onDelete?: () => void }) {
+  const Icon = entry.type === 'internal' ? Building2 : Globe;
   return (
     <div className={cn(
       'flex items-start gap-3 px-4 py-3.5 rounded-xl border transition-colors hover:bg-gray-50/60',
-      contact.type === 'internal' ? 'border-gray-200' : 'border-blue-100 bg-blue-50/20'
+      entry.type === 'internal' ? 'border-gray-200' : 'border-blue-100 bg-blue-50/20'
     )}>
-      <div className={cn('w-9 h-9 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0', contact.color)}>
-        {contact.initials}
+      <div className={cn(
+        'w-8 h-8 rounded-lg flex items-center justify-center shrink-0',
+        entry.type === 'internal' ? 'bg-slate-100' : 'bg-blue-100'
+      )}>
+        <Icon className={cn('w-4 h-4', entry.type === 'internal' ? 'text-slate-600' : 'text-blue-600')} />
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 flex-wrap">
-          <p className="text-sm font-semibold text-gray-900">{contact.name}</p>
-          <span className="text-xs text-gray-400">{contact.role}</span>
-        </div>
-        {contact.department && (
-          <p className="text-xs text-gray-500 mt-0.5 flex items-center gap-1">
-            <Building2 className="w-3 h-3" /> {contact.department}
-          </p>
-        )}
-        {contact.partner && (
-          <p className="text-xs text-gray-500 mt-0.5 flex items-center gap-1">
-            <Globe className="w-3 h-3" /> {contact.partner}
-          </p>
-        )}
-        <div className="flex items-center gap-3 mt-1.5 flex-wrap">
-          {contact.extension && (
-            <div className="flex items-center gap-1 text-xs text-gray-700">
-              <Phone className="w-3 h-3 text-gray-400" />
-              <span className="font-mono">Ext. {contact.extension}</span>
-              <CopyButton value={contact.extension} />
-            </div>
-          )}
-          {contact.directLine && (
-            <div className="flex items-center gap-1 text-xs text-gray-700">
-              <Phone className="w-3 h-3 text-gray-400" />
-              <span className="font-mono">{contact.directLine}</span>
-              <CopyButton value={contact.directLine} />
-            </div>
-          )}
-          {contact.email && (
-            <div className="flex items-center gap-1 text-xs text-gray-700">
-              <Mail className="w-3 h-3 text-gray-400" />
-              <span className="font-mono">{contact.email}</span>
-              <CopyButton value={contact.email} />
-            </div>
+          <p className="text-sm font-semibold text-gray-900">{entry.name}</p>
+          {entry.category && (
+            <span className="text-xs text-gray-400 bg-gray-100 rounded px-1.5 py-0.5">{entry.category}</span>
           )}
         </div>
-        {contact.notes && (
-          <p className="text-xs text-gray-400 mt-1 italic">{contact.notes}</p>
-        )}
+        <div className="flex items-center gap-1 mt-1">
+          <Phone className="w-3 h-3 text-gray-400 shrink-0" />
+          <span className="text-xs font-mono text-gray-700">{entry.number}</span>
+          <CopyButton value={entry.number} />
+        </div>
+        {entry.notes && <p className="text-xs text-gray-400 mt-1 italic">{entry.notes}</p>}
       </div>
+      {entry.isCustom && (
+        <div className="flex items-center gap-0.5 shrink-0">
+          {onEdit && (
+            <button onClick={onEdit} className="p-1.5 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600" aria-label="Edit">
+              <Pencil className="w-3.5 h-3.5" />
+            </button>
+          )}
+          {onDelete && (
+            <button onClick={onDelete} className="p-1.5 rounded hover:bg-red-50 text-gray-400 hover:text-red-500" aria-label="Delete">
+              <Trash2 className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }
 
-const TABS = ['All', 'Internal', 'External'] as const;
+const TABS = ['All', 'Internal', 'External', 'My Numbers'] as const;
 
 export default function PhoneBookPage() {
   const [search, setSearch] = useState('');
   const [activeTab, setActiveTab] = useState<(typeof TABS)[number]>('All');
+  const [customEntries, setCustomEntries] = useState<PhoneEntry[]>([]);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editEntry, setEditEntry] = useState<PhoneEntry | null>(null);
+  const [form, setForm] = useState({ name: '', number: '', type: 'internal' as 'internal' | 'external', notes: '' });
+  const { success } = useToast();
 
-  const filtered = CONTACTS.filter((c) => {
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) setCustomEntries(JSON.parse(raw));
+    } catch { /* ignore */ }
+  }, []);
+
+  const persistCustom = (next: PhoneEntry[]) => {
+    setCustomEntries(next);
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(next)); } catch { /* quota */ }
+  };
+
+  const openAdd = () => {
+    setEditEntry(null);
+    setForm({ name: '', number: '', type: 'internal', notes: '' });
+    setModalOpen(true);
+  };
+
+  const openEdit = (entry: PhoneEntry) => {
+    setEditEntry(entry);
+    setForm({ name: entry.name, number: entry.number, type: entry.type, notes: entry.notes ?? '' });
+    setModalOpen(true);
+  };
+
+  const handleSave = () => {
+    if (!form.name.trim() || !form.number.trim()) return;
+    if (editEntry) {
+      persistCustom(customEntries.map((e) => e.id === editEntry.id
+        ? { ...e, name: form.name.trim(), number: form.number.trim(), type: form.type, notes: form.notes.trim() }
+        : e
+      ));
+      success('Contact updated');
+    } else {
+      const newEntry: PhoneEntry = {
+        id: `custom-${Date.now()}`,
+        name: form.name.trim(),
+        number: form.number.trim(),
+        type: form.type,
+        notes: form.notes.trim() || undefined,
+        isCustom: true,
+      };
+      persistCustom([...customEntries, newEntry]);
+      success('Contact added');
+    }
+    setModalOpen(false);
+  };
+
+  const handleDelete = (id: string) => {
+    persistCustom(customEntries.filter((e) => e.id !== id));
+    success('Contact removed');
+  };
+
+  const allEntries = [...DEFAULT_ENTRIES, ...customEntries];
+
+  const filtered = allEntries.filter((e) => {
+    const q = search.toLowerCase();
+    const matchesSearch = !search || e.name.toLowerCase().includes(q) || e.number.toLowerCase().includes(q) || (e.category ?? '').toLowerCase().includes(q);
     const matchesTab =
       activeTab === 'All' ||
-      (activeTab === 'Internal' && c.type === 'internal') ||
-      (activeTab === 'External' && c.type === 'external');
-    const q = search.toLowerCase();
-    const matchesSearch =
-      !search ||
-      c.name.toLowerCase().includes(q) ||
-      c.role.toLowerCase().includes(q) ||
-      (c.department ?? '').toLowerCase().includes(q) ||
-      (c.partner ?? '').toLowerCase().includes(q) ||
-      (c.extension ?? '').includes(q) ||
-      (c.directLine ?? '').includes(q);
-    return matchesTab && matchesSearch;
+      (activeTab === 'Internal' && e.type === 'internal' && !e.isCustom) ||
+      (activeTab === 'External' && e.type === 'external' && !e.isCustom) ||
+      (activeTab === 'My Numbers' && e.isCustom);
+    return matchesSearch && matchesTab;
   });
 
-  const internalContacts = filtered.filter((c) => c.type === 'internal' && !c.department?.includes('Queue') && c.role !== 'Department Queue' && c.role !== 'Priority Handling' && c.role !== 'Management');
-  const internalDepts = filtered.filter((c) => c.type === 'internal' && (c.role === 'Department Queue' || c.role === 'Priority Handling' || c.role === 'Management'));
-  const externalContacts = filtered.filter((c) => c.type === 'external');
+  const internalEntries = filtered.filter((e) => e.type === 'internal' && !e.isCustom);
+  const externalEntries = filtered.filter((e) => e.type === 'external' && !e.isCustom);
+  const myEntries = filtered.filter((e) => e.isCustom);
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      <TopBar
-        title="Phone Book"
-        subtitle="Internal team contacts and external partner numbers."
-      />
+      <TopBar title="Phone Book" subtitle="Internal department numbers and external partner contacts." />
 
       <div className="flex-1 overflow-y-auto">
         <div className="p-6 space-y-4 max-w-4xl">
-          {/* Search + Tabs */}
+          {/* Search */}
           <div className="flex items-center gap-2 bg-white border border-gray-300 rounded-lg px-3 py-2">
             <Search className="w-4 h-4 text-gray-400 shrink-0" />
             <input
               type="text"
-              placeholder="Search by name, department, or number..."
+              placeholder="Search by name or number..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="bg-transparent text-sm text-gray-700 placeholder:text-gray-400 w-full focus:outline-none"
             />
           </div>
 
-          <div className="flex gap-1 border-b border-gray-200">
-            {TABS.map((tab) => (
-              <button
-                key={tab}
-                onClick={() => setActiveTab(tab)}
-                className={cn(
-                  'px-4 py-2 text-sm font-medium border-b-2 transition-colors -mb-px',
-                  activeTab === tab ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'
-                )}
-              >
-                {tab}
-              </button>
-            ))}
+          {/* Tabs + Add button */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1 border-b border-gray-200">
+              {TABS.map((tab) => (
+                <button
+                  key={tab}
+                  onClick={() => setActiveTab(tab)}
+                  className={cn(
+                    'flex items-center gap-1.5 px-4 py-2 text-sm font-medium border-b-2 transition-colors -mb-px',
+                    activeTab === tab ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'
+                  )}
+                >
+                  {tab}
+                  {tab === 'My Numbers' && customEntries.length > 0 && (
+                    <span className="text-xs bg-gray-100 text-gray-600 rounded-full px-1.5 py-0.5">{customEntries.length}</span>
+                  )}
+                </button>
+              ))}
+            </div>
+            <Button size="sm" onClick={openAdd} className="shrink-0">
+              <Plus className="w-4 h-4 mr-1" /> Add Number
+            </Button>
           </div>
 
           {filtered.length === 0 && (
             <p className="text-sm text-gray-400 text-center py-8">No contacts match your search.</p>
           )}
 
-          {/* Internal team */}
-          {(activeTab === 'All' || activeTab === 'Internal') && internalContacts.length > 0 && (
-            <section>
-              <div className="flex items-center gap-2 mb-3">
-                <User className="w-4 h-4 text-gray-400" />
-                <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Team Members</h2>
-              </div>
-              <div className="space-y-2">
-                {internalContacts.map((c) => <ContactCard key={c.id} contact={c} />)}
-              </div>
-            </section>
-          )}
-
           {/* Internal departments */}
-          {(activeTab === 'All' || activeTab === 'Internal') && internalDepts.length > 0 && (
+          {(activeTab === 'All' || activeTab === 'Internal') && internalEntries.length > 0 && (
             <section>
               <div className="flex items-center gap-2 mb-3">
                 <Building2 className="w-4 h-4 text-gray-400" />
-                <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Department Queues</h2>
+                <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Internal Departments</h2>
               </div>
               <div className="space-y-2">
-                {internalDepts.map((c) => <ContactCard key={c.id} contact={c} />)}
+                {internalEntries.map((e) => <EntryRow key={e.id} entry={e} />)}
               </div>
             </section>
           )}
 
           {/* External partners */}
-          {(activeTab === 'All' || activeTab === 'External') && externalContacts.length > 0 && (
+          {(activeTab === 'All' || activeTab === 'External') && externalEntries.length > 0 && (
             <section>
               <div className="flex items-center gap-2 mb-3">
                 <Globe className="w-4 h-4 text-gray-400" />
                 <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">External Partner Numbers</h2>
               </div>
-              <Card padding="none" className="overflow-hidden">
-                <div className="divide-y divide-gray-100">
-                  {externalContacts.map((c) => (
-                    <div key={c.id} className="px-4 py-3.5 hover:bg-gray-50/60 transition-colors">
-                      <ContactCard contact={c} />
-                    </div>
-                  ))}
-                </div>
-              </Card>
+              <div className="space-y-2">
+                {externalEntries.map((e) => <EntryRow key={e.id} entry={e} />)}
+              </div>
             </section>
+          )}
+
+          {/* My custom numbers */}
+          {(activeTab === 'All' || activeTab === 'My Numbers') && myEntries.length > 0 && (
+            <section>
+              <div className="flex items-center gap-2 mb-3">
+                <Phone className="w-4 h-4 text-gray-400" />
+                <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">My Numbers</h2>
+              </div>
+              <div className="space-y-2">
+                {myEntries.map((e) => (
+                  <EntryRow key={e.id} entry={e} onEdit={() => openEdit(e)} onDelete={() => handleDelete(e.id)} />
+                ))}
+              </div>
+            </section>
+          )}
+
+          {activeTab === 'My Numbers' && myEntries.length === 0 && !search && (
+            <div className="text-center py-12">
+              <p className="text-sm text-gray-400 mb-3">No saved numbers yet.</p>
+              <Button size="sm" variant="outline" onClick={openAdd}>
+                <Plus className="w-4 h-4 mr-1" /> Add your first number
+              </Button>
+            </div>
           )}
         </div>
       </div>
+
+      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editEntry ? 'Edit Contact' : 'Add Number'} size="sm">
+        <div className="space-y-3">
+          <Input
+            label="Name"
+            required
+            placeholder="e.g. Collections Team"
+            value={form.name}
+            onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+          />
+          <Input
+            label="Number / Extension"
+            required
+            placeholder="e.g. Ext. 5050 or 0800 123 456"
+            value={form.number}
+            onChange={(e) => setForm((f) => ({ ...f, number: e.target.value }))}
+          />
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1.5">Type</label>
+            <div className="flex gap-3">
+              {(['internal', 'external'] as const).map((t) => (
+                <label key={t} className="flex items-center gap-2 text-sm cursor-pointer">
+                  <input
+                    type="radio"
+                    name="type"
+                    value={t}
+                    checked={form.type === t}
+                    onChange={() => setForm((f) => ({ ...f, type: t }))}
+                    className="accent-blue-600"
+                  />
+                  <span className="capitalize">{t}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+          <Input
+            label="Notes (optional)"
+            placeholder="e.g. Available Mon–Fri 09:00–17:00"
+            value={form.notes}
+            onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
+          />
+          <div className="flex gap-3 pt-1">
+            <Button variant="outline" className="flex-1" onClick={() => setModalOpen(false)}>Cancel</Button>
+            <Button className="flex-1" onClick={handleSave} disabled={!form.name.trim() || !form.number.trim()}>
+              {editEntry ? 'Save Changes' : 'Add Contact'}
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }

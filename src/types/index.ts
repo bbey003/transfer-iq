@@ -16,8 +16,30 @@ export interface User {
   brid?: string;
   avatar?: string;
   department: string;
+  /** For agents: the ID of their line manager */
+  managerId?: string;
   status: 'active' | 'suspended';
   createdAt: string;
+}
+
+export interface AgentSuggestion {
+  id: string;
+  agentId: string;
+  agentName: string;
+  agentInitials: string;
+  agentColor: string;
+  category: 'knowledge_gap' | 'process_issue' | 'customer_trend' | 'suggestion';
+  message: string;
+  createdAt: string;
+  isRead: boolean;
+}
+
+export interface CallVolume {
+  id: string;
+  managerId: string;
+  weekOf: string;
+  totalCalls: number;
+  enteredAt: string;
 }
 
 export interface Department {

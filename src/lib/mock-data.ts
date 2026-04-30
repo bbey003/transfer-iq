@@ -1,7 +1,7 @@
 import type {
   User, Department, Partner, TransferReason, Transfer,
   CoachingSession, Feedback, ChartDataPoint, WeeklyTrendPoint,
-  AgentPattern, KnowledgeGap, Notification,
+  AgentPattern, KnowledgeGap, Notification, AgentSuggestion, CallVolume,
 } from '@/types';
 
 export const CURRENT_USER: User = {
@@ -85,6 +85,24 @@ export const SEED_TRANSFERS: Transfer[] = [
   { id: 't-014', aid: 'AID-87308', agentId: 'u-103', agentName: 'Emily Rodriguez', agentInitials: 'ER', agentColor: 'bg-orange-500', department: 'Partners', partner: 'ClearScore', reason: 'Information / Clarification', notes: 'info needed', status: 'invalid', createdAt: '2025-05-17T13:10:00', flagged: true, flagReasons: ['Insufficient detail: notes must be at least 30 characters for Information / Clarification transfers.'], reviewedBy: 'Alex Carter', reviewedAt: '2025-05-17T14:00:00', riskScore: 35 },
   // VALID
   { id: 't-015', aid: 'AID-87307', agentId: 'u-104', agentName: 'David Park', agentInitials: 'DP', agentColor: 'bg-blue-500', department: 'Fraud', partner: '', reason: 'Fraud Concern', notes: 'Customer reported card used at ATM they do not recognise. Possible skimming device involved.', status: 'completed', createdAt: '2025-05-17T11:45:00', flagged: false, riskScore: 0 },
+
+  // ── Jordan Mills's team transfers ──────────────────────────────
+  // VALID — Fraud Concern always passes
+  { id: 't-101', aid: 'AID-87421', agentId: 'u-201', agentName: 'Tom Bradley', agentInitials: 'TB', agentColor: 'bg-cyan-500', department: 'Fraud', partner: '', reason: 'Fraud Concern', notes: 'Customer noticed three unfamiliar transactions. Confirmed the last authorised access was two days ago. Transferring to fraud team for immediate review.', status: 'completed', createdAt: '2025-05-18T11:10:00', flagged: false, riskScore: 0 },
+  // PENDING — Partners, Info/Clarification, notes too short
+  { id: 't-102', aid: 'AID-87422', agentId: 'u-202', agentName: 'Aisha Patel', agentInitials: 'AP', agentColor: 'bg-rose-500', department: 'Partners', partner: 'Barclaycard', reason: 'Information / Clarification', notes: 'Billing query', status: 'pending_review', createdAt: '2025-05-18T10:55:00', flagged: true, flagReasons: ['Insufficient detail: notes must be at least 30 characters for Information / Clarification transfers.'], riskScore: 35 },
+  // VALID — System/Process Issue
+  { id: 't-103', aid: 'AID-87423', agentId: 'u-203', agentName: 'Carlos Reyes', agentInitials: 'CR', agentColor: 'bg-lime-600', department: 'Deposits', partner: '', reason: 'System / Process Issue', notes: 'Customer attempted three deposits over 48 hours, all returned with error code DPS-302. Status page shows no maintenance window. Escalating to technical deposits team.', status: 'completed', createdAt: '2025-05-18T10:30:00', flagged: false, riskScore: 0 },
+  // PENDING — Manager, Info/Clarification, vague notes
+  { id: 't-104', aid: 'AID-87424', agentId: 'u-204', agentName: 'Nina Watson', agentInitials: 'NW', agentColor: 'bg-amber-600', department: 'Manager', partner: '', reason: 'Information / Clarification', notes: 'needs help', status: 'pending_review', createdAt: '2025-05-18T10:05:00', flagged: true, flagReasons: ['Notes required: Transfers to the Manager department must include a reason why the agent could not resolve.', 'Notes required: Transfers for Information/Clarification must include notes explaining what was attempted first.'], riskScore: 70 },
+  // VALID — Account Access with proper notes
+  { id: 't-105', aid: 'AID-87425', agentId: 'u-205', agentName: 'James Osei', agentInitials: 'JO', agentColor: 'bg-sky-600', department: 'Credit', partner: 'Experian', reason: 'Account Access', notes: 'Customer locked out after password reset link expired. Attempted manual verification — security questions not matching. Transferring to credit team for identity verification.', status: 'completed', createdAt: '2025-05-18T09:50:00', flagged: false, riskScore: 0 },
+  // INVALID — reviewed by Jordan
+  { id: 't-106', aid: 'AID-87420', agentId: 'u-201', agentName: 'Tom Bradley', agentInitials: 'TB', agentColor: 'bg-cyan-500', department: 'Partners', partner: 'Transunion', reason: 'Information / Clarification', notes: 'credit stuff', status: 'invalid', createdAt: '2025-05-17T15:20:00', flagged: true, flagReasons: ['Insufficient detail: notes must be at least 30 characters for Information / Clarification transfers.'], reviewedBy: 'Jordan Mills', reviewedAt: '2025-05-17T16:00:00', riskScore: 35, managerNote: 'Please describe the specific query before transferring. "Credit stuff" does not give the partner team enough context.' },
+  // VALID — Customer Request
+  { id: 't-107', aid: 'AID-87419', agentId: 'u-202', agentName: 'Aisha Patel', agentInitials: 'AP', agentColor: 'bg-rose-500', department: 'Fraud', partner: '', reason: 'Fraud Concern', notes: 'Customer received a text they did not request asking them to verify their account. Concerned about phishing. Transferring to fraud prevention.', status: 'completed', createdAt: '2025-05-17T14:10:00', flagged: false, riskScore: 0 },
+  // VALID — Customer Request
+  { id: 't-108', aid: 'AID-87418', agentId: 'u-203', agentName: 'Carlos Reyes', agentInitials: 'CR', agentColor: 'bg-lime-600', department: 'Top of Queue', partner: '', reason: 'Customer Request', notes: 'Customer explicitly requested to speak with priority queue due to an ongoing complaint that has not been resolved after two previous calls.', status: 'completed', createdAt: '2025-05-17T13:45:00', flagged: false, riskScore: 0 },
 ];
 
 export const DEPT_CHART_DATA: ChartDataPoint[] = [
@@ -146,15 +164,27 @@ export const KNOWLEDGE_GAPS: KnowledgeGap[] = [
   },
 ];
 
+export const MANAGERS: User[] = [
+  { id: 'u-001', name: 'Alex Carter', email: 'alex.carter@transferiq.internal', role: 'manager', aid: 'AID-00001', department: 'Operations', status: 'active', createdAt: '2024-01-15' },
+  { id: 'u-002', name: 'Jordan Mills', email: 'jordan.mills@transferiq.internal', role: 'manager', aid: 'AID-00002', department: 'Operations', status: 'active', createdAt: '2024-01-15' },
+];
+
 export const AGENTS: User[] = [
-  { id: 'u-101', name: 'Jessica Lee', email: 'jessica.lee@transferiq.internal', role: 'agent', aid: 'AID-87321', brid: 'BRID-10421', department: 'Operations', status: 'active', createdAt: '2024-02-01' },
-  { id: 'u-102', name: 'Michael Chen', email: 'michael.chen@transferiq.internal', role: 'agent', aid: 'AID-87320', brid: 'BRID-10422', department: 'Operations', status: 'active', createdAt: '2024-02-01' },
-  { id: 'u-103', name: 'Emily Rodriguez', email: 'emily.rodriguez@transferiq.internal', role: 'agent', aid: 'AID-87319', brid: 'BRID-10423', department: 'Operations', status: 'active', createdAt: '2024-02-15' },
-  { id: 'u-104', name: 'David Park', email: 'david.park@transferiq.internal', role: 'agent', aid: 'AID-87318', brid: 'BRID-10424', department: 'Operations', status: 'active', createdAt: '2024-03-01' },
-  { id: 'u-105', name: 'Lisa Anderson', email: 'lisa.anderson@transferiq.internal', role: 'agent', aid: 'AID-87317', brid: 'BRID-10425', department: 'Operations', status: 'active', createdAt: '2024-03-10' },
-  { id: 'u-106', name: 'Ryan Kim', email: 'ryan.kim@transferiq.internal', role: 'agent', aid: 'AID-87316', brid: 'BRID-10426', department: 'Operations', status: 'active', createdAt: '2024-03-15' },
-  { id: 'u-107', name: 'Sarah Torres', email: 'sarah.torres@transferiq.internal', role: 'agent', aid: 'AID-87315', brid: 'BRID-10427', department: 'Operations', status: 'active', createdAt: '2024-04-01' },
-  { id: 'u-108', name: 'Will Brooks', email: 'will.brooks@transferiq.internal', role: 'agent', aid: 'AID-87314', brid: 'BRID-10428', department: 'Operations', status: 'suspended', createdAt: '2024-04-15' },
+  // Alex Carter's team (managerId: 'u-001')
+  { id: 'u-101', name: 'Jessica Lee', email: 'jessica.lee@transferiq.internal', role: 'agent', aid: 'AID-87321', brid: 'BRID-10421', department: 'Operations', managerId: 'u-001', status: 'active', createdAt: '2024-02-01' },
+  { id: 'u-102', name: 'Michael Chen', email: 'michael.chen@transferiq.internal', role: 'agent', aid: 'AID-87320', brid: 'BRID-10422', department: 'Operations', managerId: 'u-001', status: 'active', createdAt: '2024-02-01' },
+  { id: 'u-103', name: 'Emily Rodriguez', email: 'emily.rodriguez@transferiq.internal', role: 'agent', aid: 'AID-87319', brid: 'BRID-10423', department: 'Operations', managerId: 'u-001', status: 'active', createdAt: '2024-02-15' },
+  { id: 'u-104', name: 'David Park', email: 'david.park@transferiq.internal', role: 'agent', aid: 'AID-87318', brid: 'BRID-10424', department: 'Operations', managerId: 'u-001', status: 'active', createdAt: '2024-03-01' },
+  { id: 'u-105', name: 'Lisa Anderson', email: 'lisa.anderson@transferiq.internal', role: 'agent', aid: 'AID-87317', brid: 'BRID-10425', department: 'Operations', managerId: 'u-001', status: 'active', createdAt: '2024-03-10' },
+  { id: 'u-106', name: 'Ryan Kim', email: 'ryan.kim@transferiq.internal', role: 'agent', aid: 'AID-87316', brid: 'BRID-10426', department: 'Operations', managerId: 'u-001', status: 'active', createdAt: '2024-03-15' },
+  { id: 'u-107', name: 'Sarah Torres', email: 'sarah.torres@transferiq.internal', role: 'agent', aid: 'AID-87315', brid: 'BRID-10427', department: 'Operations', managerId: 'u-001', status: 'active', createdAt: '2024-04-01' },
+  { id: 'u-108', name: 'Will Brooks', email: 'will.brooks@transferiq.internal', role: 'agent', aid: 'AID-87314', brid: 'BRID-10428', department: 'Operations', managerId: 'u-001', status: 'suspended', createdAt: '2024-04-15' },
+  // Jordan Mills's team (managerId: 'u-002')
+  { id: 'u-201', name: 'Tom Bradley', email: 'tom.bradley@transferiq.internal', role: 'agent', aid: 'AID-87421', brid: 'BRID-20421', department: 'Operations', managerId: 'u-002', status: 'active', createdAt: '2024-02-01' },
+  { id: 'u-202', name: 'Aisha Patel', email: 'aisha.patel@transferiq.internal', role: 'agent', aid: 'AID-87422', brid: 'BRID-20422', department: 'Operations', managerId: 'u-002', status: 'active', createdAt: '2024-02-15' },
+  { id: 'u-203', name: 'Carlos Reyes', email: 'carlos.reyes@transferiq.internal', role: 'agent', aid: 'AID-87423', brid: 'BRID-20423', department: 'Operations', managerId: 'u-002', status: 'active', createdAt: '2024-03-01' },
+  { id: 'u-204', name: 'Nina Watson', email: 'nina.watson@transferiq.internal', role: 'agent', aid: 'AID-87424', brid: 'BRID-20424', department: 'Operations', managerId: 'u-002', status: 'active', createdAt: '2024-03-15' },
+  { id: 'u-205', name: 'James Osei', email: 'james.osei@transferiq.internal', role: 'agent', aid: 'AID-87425', brid: 'BRID-20425', department: 'Operations', managerId: 'u-002', status: 'active', createdAt: '2024-04-01' },
 ];
 
 export const COACHING_SESSIONS: CoachingSession[] = [
@@ -182,3 +212,44 @@ export const DASHBOARD_STATS = {
   topDept: { value: 'Fraud', subtext: '28% of total transfers' },
   agentsNeedingCoaching: { value: 14, change: 3, period: 'vs last 7 days', positive: false },
 };
+
+export const SEED_SUGGESTIONS: AgentSuggestion[] = [
+  {
+    id: 'sg-001',
+    agentId: 'u-101',
+    agentName: 'Jessica Lee',
+    agentInitials: 'JL',
+    agentColor: 'bg-purple-500',
+    category: 'knowledge_gap',
+    message: 'Customers keep asking about overseas transfer fees but the FAQ does not cover this. Several calls today ended in transfers that could have been resolved if we had a clear policy doc.',
+    createdAt: '2025-05-18T09:00:00',
+    isRead: false,
+  },
+  {
+    id: 'sg-002',
+    agentId: 'u-102',
+    agentName: 'Michael Chen',
+    agentInitials: 'MC',
+    agentColor: 'bg-teal-500',
+    category: 'customer_trend',
+    message: 'Multiple customers today were confused about the PayPlan debt management timeline after referral. They expected a callback within 24 hours but PayPlan says 3–5 days. Recommend updating what we tell customers at point of transfer.',
+    createdAt: '2025-05-17T16:00:00',
+    isRead: false,
+  },
+  {
+    id: 'sg-003',
+    agentId: 'u-201',
+    agentName: 'Tom Bradley',
+    agentInitials: 'TB',
+    agentColor: 'bg-cyan-500',
+    category: 'process_issue',
+    message: 'The transfer system was slow between 2–4 PM. Calls were dropping during warm transfers to Partners. Happened three times. Worth flagging to IT.',
+    createdAt: '2025-05-18T10:00:00',
+    isRead: false,
+  },
+];
+
+export const SEED_CALL_VOLUMES: CallVolume[] = [
+  { id: 'cv-001', managerId: 'u-001', weekOf: '2025-05-12', totalCalls: 210, enteredAt: '2025-05-12T09:00:00' },
+  { id: 'cv-002', managerId: 'u-002', weekOf: '2025-05-12', totalCalls: 185, enteredAt: '2025-05-12T09:15:00' },
+];
