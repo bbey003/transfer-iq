@@ -81,7 +81,7 @@ interface TransferStore {
 
 const Ctx = createContext<TransferStore | null>(null);
 
-function computeStats(transfers: Transfer[]) {
+export function computeStats(transfers: Transfer[]) {
   const now = new Date();
   const weekAgo = new Date(now);
   weekAgo.setDate(weekAgo.getDate() - 7);

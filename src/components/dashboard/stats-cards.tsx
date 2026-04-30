@@ -4,8 +4,10 @@ import { useState } from 'react';
 import { ArrowRightLeft, Flag, Building2, UserCog, Percent } from 'lucide-react';
 import { TrendingUp, TrendingDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useTransferStore, getWeekMonday } from '@/lib/transfer-store';
+import { useTransferStore, getWeekMonday, computeStats } from '@/lib/transfer-store';
 import { useAuth } from '@/lib/auth-context';
+import { getManagerTeamIds } from '@/lib/mock-data';
+import { getAgentsNeedingCoaching } from '@/lib/constraints';
 import { Modal } from '@/components/ui/modal';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -47,16 +49,16 @@ function StatCard({ label, value, subtext, trend, icon, iconBg, action }: StatCa
   );
 }
 
-function TransferRateCard() {
+function TransferRateCard({ teamTransfersThisWeek }: { teamTransfersThisWeek: number }) {
   const { user } = useAuth();
-  const { stats, callVolumes, setCallVolume } = useTransferStore();
+  const { callVolumes, setCallVolume } = useTransferStore();
   const [modalOpen, setModalOpen] = useState(false);
   const [callsInput, setCallsInput] = useState('');
 
   const weekOf = getWeekMonday();
   const volume = callVolumes.find((v) => v.managerId === user?.id && v.weekOf === weekOf);
   const totalCalls = volume?.totalCalls ?? 0;
-  const transferRate = totalCalls > 0 ? ((stats.totalThisWeek / totalCalls) * 100) : null;
+  const transferRate = totalCalls > 0 ? ((teamTransfersThisWeek / totalCalls) * 100) : null;
 
   const rateColor = transferRate === null ? 'text-gray-400'
     : transferRate < 8 ? 'text-emerald-600'
@@ -92,7 +94,7 @@ function TransferRateCard() {
                   {transferRate.toFixed(1)}%
                 </p>
                 <p className="text-xs text-gray-500 mt-1">
-                  {stats.totalThisWeek} transfers / {totalCalls.toLocaleString()} calls · target &lt;10%
+                  {teamTransfersThisWeek} transfers / {totalCalls.toLocaleString()} calls · target &lt;10%
                 </p>
                 <div className={cn('inline-flex items-center gap-1 mt-1.5 text-xs font-medium', rateColor)}>
                   {transferRate < 10
@@ -142,7 +144,16 @@ function TransferRateCard() {
 }
 
 export function DashboardStatsCards() {
-  const { stats, agentsNeedingCoaching } = useTransferStore();
+  const { user } = useAuth();
+  const { transfers } = useTransferStore();
+
+  // Scope transfers to the manager's own team (admin sees all)
+  const teamTransfers = user?.role === 'manager'
+    ? transfers.filter((t) => getManagerTeamIds(user.id).has(t.agentId))
+    : transfers;
+
+  const stats = computeStats(teamTransfers);
+  const agentsNeedingCoaching = getAgentsNeedingCoaching(teamTransfers);
 
   return (
     <div className="grid grid-cols-2 xl:grid-cols-5 lg:grid-cols-3 gap-4">
@@ -173,7 +184,7 @@ export function DashboardStatsCards() {
         icon={<UserCog className="w-5 h-5 text-purple-500" />}
         iconBg="bg-purple-50"
       />
-      <TransferRateCard />
+      <TransferRateCard teamTransfersThisWeek={stats.totalThisWeek} />
     </div>
   );
 }

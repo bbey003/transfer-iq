@@ -10,6 +10,7 @@ import { Textarea } from '@/components/ui/input';
 import { useToast } from '@/components/ui/toast';
 import { cn } from '@/lib/utils';
 import { AlertCircle, CheckCircle, XCircle, ChevronDown, ChevronUp, Sparkles } from 'lucide-react';
+import { getManagerTeamIds } from '@/lib/mock-data';
 import type { Transfer } from '@/types';
 
 function formatTime(iso: string) {
@@ -159,7 +160,10 @@ export function ReviewQueue() {
   const { user } = useAuth();
   const { success } = useToast();
 
-  const pending = transfers.filter((t) => t.status === 'pending_review');
+  const teamIds = user?.role === 'manager' ? getManagerTeamIds(user.id) : null;
+  const pending = transfers.filter(
+    (t) => t.status === 'pending_review' && (teamIds === null || teamIds.has(t.agentId))
+  );
 
   if (pending.length === 0) return null;
 

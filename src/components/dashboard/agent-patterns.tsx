@@ -1,12 +1,20 @@
 'use client';
 
 import { useTransferStore, useAgentPatterns } from '@/lib/transfer-store';
+import { useAuth } from '@/lib/auth-context';
+import { getManagerTeamIds } from '@/lib/mock-data';
 import { Card, CardHeader } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 
 export function AgentPatternsCard() {
+  const { user } = useAuth();
   const { transfers } = useTransferStore();
-  const patterns = useAgentPatterns(transfers);
+
+  const teamTransfers = user?.role === 'manager'
+    ? transfers.filter((t) => getManagerTeamIds(user.id).has(t.agentId))
+    : transfers;
+
+  const patterns = useAgentPatterns(teamTransfers);
 
   return (
     <Card>

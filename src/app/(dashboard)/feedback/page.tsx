@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import { TopBar } from '@/components/layout/topbar';
-import { FEEDBACK_ITEMS, AGENTS } from '@/lib/mock-data';
+import { FEEDBACK_ITEMS, AGENTS, getManagerTeamIds } from '@/lib/mock-data';
 import { useAuth } from '@/lib/auth-context';
 import { useTransferStore } from '@/lib/transfer-store';
 import { Card, CardHeader } from '@/components/ui/card';
@@ -52,7 +52,16 @@ export default function FeedbackPage() {
 
   if (user?.role === 'agent') return null;
 
-  const unreadObservations = suggestions.filter((s) => !s.isRead).length;
+  // Scope suggestions and agent lists to manager's own team
+  const teamIds = user?.role === 'manager' ? getManagerTeamIds(user.id) : null;
+  const teamSuggestions = teamIds
+    ? suggestions.filter((s) => teamIds.has(s.agentId))
+    : suggestions;
+  const teamAgents = teamIds
+    ? AGENTS.filter((a) => teamIds.has(a.id))
+    : AGENTS.filter((a) => a.role === 'agent');
+
+  const unreadObservations = teamSuggestions.filter((s) => !s.isRead).length;
 
   const handleSend = () => {
     if (!form.toId || !form.type || !form.message) return;
@@ -135,13 +144,13 @@ export default function FeedbackPage() {
           {/* Agent Observations tab */}
           {activeTab === 'Agent Observations' && (
             <>
-              {suggestions.length === 0 ? (
+              {teamSuggestions.length === 0 ? (
                 <div className="text-center py-12 text-sm text-gray-400">
                   No agent observations submitted yet.
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {suggestions.map((s) => {
+                  {teamSuggestions.map((s) => {
                     const meta = CATEGORY_META[s.category];
                     return (
                       <div
@@ -194,7 +203,7 @@ export default function FeedbackPage() {
             placeholder="Select agent"
             value={form.toId}
             onChange={(e) => setForm((f) => ({ ...f, toId: e.target.value }))}
-            options={AGENTS.filter((a) => a.role === 'agent').map((a) => ({ value: a.id, label: a.name }))}
+            options={teamAgents.map((a) => ({ value: a.id, label: a.name }))}
           />
           <Select
             label="Type"

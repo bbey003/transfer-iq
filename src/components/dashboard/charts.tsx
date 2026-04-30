@@ -6,10 +6,22 @@ import {
 } from 'recharts';
 import { Card, CardHeader } from '@/components/ui/card';
 import { useTransferStore, useDeptChartData, useReasonsChartData, useWeeklyTrend } from '@/lib/transfer-store';
+import { useAuth } from '@/lib/auth-context';
+import { getManagerTeamIds } from '@/lib/mock-data';
 import { useState } from 'react';
 
-export function TransfersByDeptChart() {
+function useTeamTransfers() {
+  const { user } = useAuth();
   const { transfers } = useTransferStore();
+  if (user?.role === 'manager') {
+    const ids = getManagerTeamIds(user.id);
+    return transfers.filter((t) => ids.has(t.agentId));
+  }
+  return transfers;
+}
+
+export function TransfersByDeptChart() {
+  const transfers = useTeamTransfers();
   const data = useDeptChartData(transfers);
   const BLUE_SHADES = ['#1d4ed8', '#2563eb', '#3b82f6', '#60a5fa', '#93c5fd', '#bfdbfe'];
 
@@ -40,13 +52,13 @@ export function TransfersByDeptChart() {
 }
 
 export function TransferReasonsChart() {
-  const { transfers } = useTransferStore();
+  const transfers = useTeamTransfers();
   const data = useReasonsChartData(transfers);
   const BLUE_SHADES = ['#1d4ed8', '#2563eb', '#3b82f6', '#60a5fa', '#93c5fd'];
 
   return (
     <Card>
-      <CardHeader title="Transfer Reasons" tooltip="Breakdown of transfer reasons from all submissions" />
+      <CardHeader title="Transfer Reasons" tooltip="Breakdown of transfer reasons from your team's submissions" />
       {data.length === 0 ? (
         <div className="h-[200px] flex items-center justify-center text-sm text-gray-400">No transfers yet</div>
       ) : (
@@ -74,7 +86,7 @@ export function TransferReasonsChart() {
 }
 
 export function WeeklyTrendChart() {
-  const { transfers } = useTransferStore();
+  const transfers = useTeamTransfers();
   const data = useWeeklyTrend(transfers);
   const [period, setPeriod] = useState<'Daily' | 'Weekly'>('Daily');
 

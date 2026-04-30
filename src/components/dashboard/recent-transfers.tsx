@@ -1,6 +1,8 @@
 'use client';
 
 import { useTransferStore } from '@/lib/transfer-store';
+import { useAuth } from '@/lib/auth-context';
+import { getManagerTeamIds } from '@/lib/mock-data';
 import { StatusBadge } from '@/components/ui/badge';
 import { Card, CardHeader } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
@@ -16,11 +18,17 @@ function formatTime(iso: string) {
 }
 
 export function RecentTransfersTable() {
+  const { user } = useAuth();
   const { transfers } = useTransferStore();
   const [page, setPage] = useState(1);
   const perPage = 5;
-  const totalPages = Math.ceil(transfers.length / perPage);
-  const pageItems = transfers.slice((page - 1) * perPage, page * perPage);
+
+  const scopedTransfers = user?.role === 'manager'
+    ? transfers.filter((t) => getManagerTeamIds(user.id).has(t.agentId))
+    : transfers;
+
+  const totalPages = Math.ceil(scopedTransfers.length / perPage);
+  const pageItems = scopedTransfers.slice((page - 1) * perPage, page * perPage);
 
   return (
     <Card padding="none">
@@ -83,7 +91,7 @@ export function RecentTransfersTable() {
       {totalPages > 1 && (
         <div className="flex items-center justify-between px-5 py-3 border-t border-gray-100">
           <p className="text-xs text-gray-500">
-            Showing {(page - 1) * perPage + 1}–{Math.min(page * perPage, transfers.length)} of {transfers.length}
+            Showing {(page - 1) * perPage + 1}–{Math.min(page * perPage, scopedTransfers.length)} of {scopedTransfers.length}
           </p>
           <div className="flex items-center gap-1">
             <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}

@@ -12,6 +12,7 @@ import { Textarea } from '@/components/ui/input';
 import { useToast } from '@/components/ui/toast';
 import { cn } from '@/lib/utils';
 import { Search, Download, MoreHorizontal, Filter, AlertCircle, CheckCircle, XCircle, MessageSquare, Sparkles } from 'lucide-react';
+import { getManagerTeamIds } from '@/lib/mock-data';
 import Link from 'next/link';
 import type { Transfer } from '@/types';
 
@@ -133,7 +134,9 @@ export default function HistoryPage() {
 
   const scopedTransfers = user?.role === 'agent'
     ? transfers.filter((t) => t.agentId === user.id)
-    : transfers;
+    : user?.role === 'manager'
+    ? transfers.filter((t) => getManagerTeamIds(user.id).has(t.agentId))
+    : transfers; // admin sees all
 
   const filtered = scopedTransfers.filter((t) => {
     const matchesSearch =

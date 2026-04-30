@@ -382,3 +382,8 @@ export const SEED_ARTICLES: KnowledgeArticle[] = [
     ],
   },
 ];
+
+/** Returns the set of agent IDs who report to the given manager. */
+export function getManagerTeamIds(managerId: string): Set<string> {
+  return new Set(AGENTS.filter((a) => a.managerId === managerId).map((a) => a.id));
+}
