@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useAuth } from '@/lib/auth-context';
 import { useTransferStore } from '@/lib/transfer-store';
+import type { PrecomputedAnalysis } from '@/lib/transfer-store';
 import { DEPARTMENTS, PARTNERS, TRANSFER_REASONS } from '@/lib/mock-data';
 import { Input, Textarea, Select } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -20,20 +21,54 @@ interface FormState {
 const EMPTY: FormState = { aid: '', department: '', partner: '', reason: '', notes: '' };
 
 const KNOWLEDGE_TIPS: Record<string, { note: string }> = {
-  'Fraud': { note: 'Fraud transfers are automatically valid. Ensure you have documented the customer\'s concern.' },
-  'Partners': { note: '42% of partner transfers are flagged due to insufficient notes. Please describe exactly what you need from the partner team.' },
-  'Deposits': { note: 'Check the deposit FAQ and note what you already tried before transferring.' },
-  'Manager': { note: 'Manager transfers require justification. Describe clearly why you could not resolve the call.' },
-  'Credit': { note: 'Account Access transfers require at least 20 characters of detail about the access issue.' },
+  Fraud:    { note: 'Fraud transfers are automatically valid. Ensure you have documented the customer\'s concern.' },
+  Partners: { note: '42% of partner transfers are flagged due to insufficient notes. Please describe exactly what you need from the partner team.' },
+  Deposits: { note: 'Check the deposit FAQ and note what you already tried before transferring.' },
+  Manager:  { note: 'Manager transfers require justification. Describe clearly why you could not resolve the call.' },
+  Credit:   { note: 'Account Access transfers require at least 20 characters of detail about the access issue.' },
 };
+
+const AGENT_COLORS: Record<string, string> = {
+  'u-101': 'bg-purple-500',
+  'u-102': 'bg-teal-500',
+  'u-103': 'bg-orange-500',
+  'u-104': 'bg-blue-500',
+};
+
+async function callAiAnalysis(
+  department: string,
+  partner: string,
+  reason: string,
+  notes: string,
+  articleJson: object | null,
+): Promise<PrecomputedAnalysis | null> {
+  try {
+    const res = await fetch('/api/analyze-transfer', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ department, partner, reason, notes, article: articleJson }),
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (data.error) return null;
+    return {
+      status: data.status ?? 'pending_review',
+      flagReasons: data.flagReasons ?? [],
+      riskScore: data.riskScore ?? 50,
+      aiExplanation: data.aiExplanation,
+    };
+  } catch {
+    return null;
+  }
+}
 
 export function LogTransferForm({ onSuccess }: { onSuccess?: () => void }) {
   const { user } = useAuth();
-  const { submitTransfer } = useTransferStore();
+  const { submitTransfer, articles } = useTransferStore();
   const [form, setForm] = useState<FormState>(EMPTY);
   const [errors, setErrors] = useState<Partial<FormState>>({});
   const [submitting, setSubmitting] = useState(false);
-  const [result, setResult] = useState<{ status: string; flagReasons: string[] } | null>(null);
+  const [result, setResult] = useState<{ status: string; flagReasons: string[]; aiExplanation?: string } | null>(null);
 
   const now = new Date();
   const dateStr = now.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
@@ -61,15 +96,9 @@ export function LogTransferForm({ onSuccess }: { onSuccess?: () => void }) {
   const handleSubmit = async () => {
     if (!validate() || !user) return;
     setSubmitting(true);
-    await new Promise((r) => setTimeout(r, 600));
 
-    const agentColor = user.id === 'u-101' ? 'bg-purple-500'
-      : user.id === 'u-102' ? 'bg-teal-500'
-      : user.id === 'u-103' ? 'bg-orange-500'
-      : user.id === 'u-104' ? 'bg-blue-500'
-      : 'bg-blue-600';
-
-    const { flagReasons, status } = submitTransfer({
+    const agentColor = AGENT_COLORS[user.id] ?? 'bg-blue-600';
+    const transferData = {
       aid: form.aid.trim(),
       department: form.department,
       partner: form.partner,
@@ -79,16 +108,24 @@ export function LogTransferForm({ onSuccess }: { onSuccess?: () => void }) {
       agentName: user.name,
       agentInitials: user.name.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase(),
       agentColor,
-    });
+    };
+
+    // Try AI analysis; fall back to rule-based engine silently on failure
+    const article = articles.find((a) => a.isActive && a.department === form.department) ?? null;
+    const precomputed = await callAiAnalysis(
+      form.department, form.partner, form.reason, form.notes, article,
+    );
+
+    const { flagReasons, status } = submitTransfer(transferData, precomputed ?? undefined);
 
     setSubmitting(false);
-    setResult({ status, flagReasons });
+    setResult({ status, flagReasons, aiExplanation: precomputed?.aiExplanation });
 
     setTimeout(() => {
       setForm(EMPTY);
       setResult(null);
       onSuccess?.();
-    }, 4000);
+    }, 5000);
   };
 
   if (result) {
@@ -110,6 +147,12 @@ export function LogTransferForm({ onSuccess }: { onSuccess?: () => void }) {
               : 'Your transfer has been flagged for manager review.'}
           </p>
         </div>
+        {result.aiExplanation && (
+          <div className="w-full text-left bg-blue-50 border border-blue-200 rounded-lg px-3 py-2.5">
+            <p className="text-xs font-semibold text-blue-800 mb-0.5">AI Assessment</p>
+            <p className="text-xs text-blue-700 leading-relaxed">{result.aiExplanation}</p>
+          </div>
+        )}
         {result.flagReasons.length > 0 && (
           <div className="w-full text-left space-y-1.5 mt-1">
             <p className="text-xs font-semibold text-amber-700">Why it was flagged:</p>
@@ -208,7 +251,7 @@ export function LogTransferForm({ onSuccess }: { onSuccess?: () => void }) {
 
       <div className="flex items-center gap-3 pt-1">
         <Button size="sm" onClick={handleSubmit} loading={submitting} className="flex-1">
-          Submit Transfer
+          {submitting ? 'Analysing...' : 'Submit Transfer'}
         </Button>
       </div>
     </div>

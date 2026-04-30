@@ -11,7 +11,7 @@ import { Modal } from '@/components/ui/modal';
 import { Textarea } from '@/components/ui/input';
 import { useToast } from '@/components/ui/toast';
 import { cn } from '@/lib/utils';
-import { Search, Download, MoreHorizontal, Filter, AlertCircle, CheckCircle, XCircle, MessageSquare } from 'lucide-react';
+import { Search, Download, MoreHorizontal, Filter, AlertCircle, CheckCircle, XCircle, MessageSquare, Sparkles } from 'lucide-react';
 import Link from 'next/link';
 import type { Transfer } from '@/types';
 
@@ -63,6 +63,16 @@ function ReviewModal({ transfer, onClose }: { transfer: Transfer; onClose: () =>
             </div>
           ))}
         </div>
+
+        {transfer.aiExplanation && (
+          <div className="flex items-start gap-2 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2.5">
+            <Sparkles className="w-3.5 h-3.5 text-blue-500 shrink-0 mt-0.5" />
+            <div>
+              <p className="text-xs font-semibold text-blue-800 mb-0.5">AI Assessment</p>
+              <p className="text-xs text-blue-700 leading-relaxed">{transfer.aiExplanation}</p>
+            </div>
+          </div>
+        )}
 
         <div>
           <p className="text-xs font-semibold text-gray-500 mb-1">Agent notes:</p>

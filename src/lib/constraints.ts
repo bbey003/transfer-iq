@@ -14,6 +14,7 @@ export interface AnalysisResult {
   status: 'completed' | 'pending_review';
   flagReasons: string[];
   riskScore: number; // 0-100
+  aiExplanation?: string;
 }
 
 export const DEFAULT_CONSTRAINTS: TransferConstraint[] = [

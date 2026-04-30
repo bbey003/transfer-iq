@@ -1,34 +1,46 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import type { Transfer, AgentSuggestion, CallVolume } from '@/types';
+import type { Transfer, AgentSuggestion, CallVolume, KnowledgeArticle } from '@/types';
 import type { TransferConstraint } from '@/lib/constraints';
-import { SEED_TRANSFERS, DEPARTMENTS, PARTNERS, TRANSFER_REASONS, SEED_SUGGESTIONS, SEED_CALL_VOLUMES } from '@/lib/mock-data';
+import { SEED_TRANSFERS, DEPARTMENTS, PARTNERS, TRANSFER_REASONS, SEED_SUGGESTIONS, SEED_CALL_VOLUMES, SEED_ARTICLES } from '@/lib/mock-data';
 import { DEFAULT_CONSTRAINTS, analyzeTransfer, getAgentsNeedingCoaching } from '@/lib/constraints';
 
 const STORE_KEY = 'tiq_transfers';
 const CONSTRAINTS_KEY = 'tiq_constraints';
 const SUGGESTIONS_KEY = 'tiq_suggestions';
 const CALL_VOLUMES_KEY = 'tiq_call_volumes';
+const ARTICLES_KEY = 'tiq_articles';
+
+export interface PrecomputedAnalysis {
+  status: 'completed' | 'pending_review';
+  flagReasons: string[];
+  riskScore: number;
+  aiExplanation?: string;
+}
 
 interface TransferStore {
   transfers: Transfer[];
   constraints: TransferConstraint[];
   suggestions: AgentSuggestion[];
   callVolumes: CallVolume[];
+  articles: KnowledgeArticle[];
 
   // Agent actions
-  submitTransfer: (data: {
-    aid: string;
-    department: string;
-    partner: string;
-    reason: string;
-    notes: string;
-    agentId: string;
-    agentName: string;
-    agentInitials: string;
-    agentColor: string;
-  }) => { transfer: Transfer; flagReasons: string[]; status: Transfer['status'] };
+  submitTransfer: (
+    data: {
+      aid: string;
+      department: string;
+      partner: string;
+      reason: string;
+      notes: string;
+      agentId: string;
+      agentName: string;
+      agentInitials: string;
+      agentColor: string;
+    },
+    precomputedAnalysis?: PrecomputedAnalysis,
+  ) => { transfer: Transfer; flagReasons: string[]; status: Transfer['status'] };
 
   submitSuggestion: (data: {
     agentId: string;
@@ -46,6 +58,10 @@ interface TransferStore {
 
   // Call volume
   setCallVolume: (managerId: string, weekOf: string, totalCalls: number) => void;
+
+  // Knowledge articles
+  updateArticle: (id: string, updates: Partial<Omit<KnowledgeArticle, 'id' | 'department'>>) => void;
+  addArticle: (article: Omit<KnowledgeArticle, 'id'>) => void;
 
   // Constraint management
   updateConstraints: (constraints: TransferConstraint[]) => void;
@@ -99,6 +115,7 @@ export function TransferStoreProvider({ children }: { children: React.ReactNode 
   const [constraints, setConstraints] = useState<TransferConstraint[]>(DEFAULT_CONSTRAINTS);
   const [suggestions, setSuggestions] = useState<AgentSuggestion[]>([]);
   const [callVolumes, setCallVolumesState] = useState<CallVolume[]>([]);
+  const [articles, setArticlesState] = useState<KnowledgeArticle[]>([]);
 
   useEffect(() => {
     try {
@@ -113,10 +130,14 @@ export function TransferStoreProvider({ children }: { children: React.ReactNode 
 
       const rawV = localStorage.getItem(CALL_VOLUMES_KEY);
       setCallVolumesState(rawV ? (JSON.parse(rawV) as CallVolume[]) : SEED_CALL_VOLUMES);
+
+      const rawA = localStorage.getItem(ARTICLES_KEY);
+      setArticlesState(rawA ? (JSON.parse(rawA) as KnowledgeArticle[]) : SEED_ARTICLES);
     } catch {
       setTransfers(SEED_TRANSFERS);
       setSuggestions(SEED_SUGGESTIONS);
       setCallVolumesState(SEED_CALL_VOLUMES);
+      setArticlesState(SEED_ARTICLES);
     }
   }, []);
 
@@ -140,11 +161,19 @@ export function TransferStoreProvider({ children }: { children: React.ReactNode 
     try { localStorage.setItem(CALL_VOLUMES_KEY, JSON.stringify(next)); } catch { /* quota */ }
   }, []);
 
-  const submitTransfer = useCallback((data: {
-    aid: string; department: string; partner: string; reason: string; notes: string;
-    agentId: string; agentName: string; agentInitials: string; agentColor: string;
-  }) => {
-    const analysis = analyzeTransfer(data, constraints);
+  const persistArticles = useCallback((next: KnowledgeArticle[]) => {
+    setArticlesState(next);
+    try { localStorage.setItem(ARTICLES_KEY, JSON.stringify(next)); } catch { /* quota */ }
+  }, []);
+
+  const submitTransfer = useCallback((
+    data: {
+      aid: string; department: string; partner: string; reason: string; notes: string;
+      agentId: string; agentName: string; agentInitials: string; agentColor: string;
+    },
+    precomputedAnalysis?: PrecomputedAnalysis,
+  ) => {
+    const analysis = precomputedAnalysis ?? analyzeTransfer(data, constraints);
     const transfer: Transfer = {
       id: `t-${Date.now()}`,
       aid: data.aid.toUpperCase(),
@@ -161,6 +190,7 @@ export function TransferStoreProvider({ children }: { children: React.ReactNode 
       flagged: analysis.flagReasons.length > 0,
       flagReasons: analysis.flagReasons,
       riskScore: analysis.riskScore,
+      aiExplanation: analysis.aiExplanation,
     };
     persist([transfer, ...transfers]);
     return { transfer, flagReasons: analysis.flagReasons, status: analysis.status };
@@ -215,6 +245,14 @@ export function TransferStoreProvider({ children }: { children: React.ReactNode 
     persistCallVolumes(next);
   }, [callVolumes, persistCallVolumes]);
 
+  const updateArticle = useCallback((id: string, updates: Partial<Omit<KnowledgeArticle, 'id' | 'department'>>) => {
+    persistArticles(articles.map((a) => a.id === id ? { ...a, ...updates } : a));
+  }, [articles, persistArticles]);
+
+  const addArticle = useCallback((article: Omit<KnowledgeArticle, 'id'>) => {
+    persistArticles([...articles, { ...article, id: `art-${Date.now()}` }]);
+  }, [articles, persistArticles]);
+
   const updateConstraints = useCallback((next: TransferConstraint[]) => {
     persistConstraints(next);
   }, [persistConstraints]);
@@ -228,10 +266,11 @@ export function TransferStoreProvider({ children }: { children: React.ReactNode 
 
   return (
     <Ctx.Provider value={{
-      transfers, constraints, suggestions, callVolumes,
+      transfers, constraints, suggestions, callVolumes, articles,
       submitTransfer, submitSuggestion,
       markValid, markInvalid, markSuggestionRead,
       setCallVolume,
+      updateArticle, addArticle,
       updateConstraints, toggleConstraint,
       stats, agentsNeedingCoaching,
     }}>

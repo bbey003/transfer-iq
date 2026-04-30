@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { TopBar } from '@/components/layout/topbar';
 import { DEPARTMENTS, PARTNERS, TRANSFER_REASONS, AGENTS, MANAGERS } from '@/lib/mock-data';
 import { useTransferStore } from '@/lib/transfer-store';
-import type { Department, Partner, TransferReason } from '@/types';
+import type { Department, Partner, TransferReason, KnowledgeArticle, KnowledgeArticleReason } from '@/types';
 import { Card } from '@/components/ui/card';
 import { StatusBadge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -12,9 +12,9 @@ import { Modal } from '@/components/ui/modal';
 import { Input, Textarea } from '@/components/ui/input';
 import { useToast } from '@/components/ui/toast';
 import { cn } from '@/lib/utils';
-import { Plus, Pencil, MoreHorizontal, Shield, Users, TrendingUp, TrendingDown, AlertCircle } from 'lucide-react';
+import { Plus, Pencil, MoreHorizontal, Shield, TrendingUp, TrendingDown, AlertCircle, Trash2, BookOpen, CheckCircle, XCircle } from 'lucide-react';
 
-const TABS = ['Teams', 'Departments', 'Partners', 'Transfer Reasons', 'Users'] as const;
+const TABS = ['Teams', 'Departments', 'Partners', 'Transfer Reasons', 'Articles', 'Users'] as const;
 type Tab = (typeof TABS)[number];
 
 function TeamBreakdown() {
@@ -37,7 +37,6 @@ function TeamBreakdown() {
         const pendingCount = teamTransfers.filter((t) => t.status === 'pending_review').length;
         const invalidRate = teamTransfers.length > 0 ? Math.round((invalidCount / teamTransfers.length) * 100) : 0;
 
-        // Latest call volume for this manager
         const latestVolume = callVolumes
           .filter((v) => v.managerId === manager.id)
           .sort((a, b) => b.weekOf.localeCompare(a.weekOf))[0];
@@ -48,7 +47,6 @@ function TeamBreakdown() {
 
         return (
           <Card key={manager.id}>
-            {/* Manager header */}
             <div className="flex items-start justify-between mb-4">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center text-white text-sm font-bold">
@@ -59,7 +57,6 @@ function TeamBreakdown() {
                   <p className="text-xs text-gray-500">{manager.aid} · {teamAgents.filter((a) => a.status === 'active').length} active agents</p>
                 </div>
               </div>
-              {/* Transfer rate badge */}
               {rateNum !== null && (
                 <div className={cn(
                   'flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg',
@@ -73,7 +70,6 @@ function TeamBreakdown() {
               )}
             </div>
 
-            {/* Stats row */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
               {[
                 { label: 'Total Transfers', value: teamTransfers.length, color: 'text-gray-900' },
@@ -89,7 +85,6 @@ function TeamBreakdown() {
               ))}
             </div>
 
-            {/* Agent list */}
             <div>
               <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Agents</p>
               <div className="divide-y divide-gray-50">
@@ -131,6 +126,272 @@ function TeamBreakdown() {
     </div>
   );
 }
+
+// ---------- Article editor ----------
+
+type ArticleForm = {
+  summary: string;
+  minNotes: string;
+  validReasons: KnowledgeArticleReason[];
+  invalidReasons: KnowledgeArticleReason[];
+  tips: string[];
+  isActive: boolean;
+};
+
+function reasonsEqual(a: KnowledgeArticleReason[], b: KnowledgeArticleReason[]) {
+  return JSON.stringify(a) === JSON.stringify(b);
+}
+
+function ArticlesTab() {
+  const { articles, updateArticle } = useTransferStore();
+  const { success } = useToast();
+
+  const [editArticle, setEditArticle] = useState<KnowledgeArticle | null>(null);
+  const [form, setForm] = useState<ArticleForm>({
+    summary: '', minNotes: '', validReasons: [], invalidReasons: [], tips: [], isActive: true,
+  });
+
+  const openEdit = (article: KnowledgeArticle) => {
+    setEditArticle(article);
+    setForm({
+      summary: article.summary,
+      minNotes: article.minNotes ?? '',
+      validReasons: article.validReasons.map((r) => ({ ...r })),
+      invalidReasons: article.invalidReasons.map((r) => ({ ...r })),
+      tips: [...article.tips],
+      isActive: article.isActive,
+    });
+  };
+
+  const handleSave = () => {
+    if (!editArticle) return;
+    updateArticle(editArticle.id, {
+      summary: form.summary.trim(),
+      minNotes: form.minNotes.trim() || undefined,
+      validReasons: form.validReasons.filter((r) => r.reason.trim()),
+      invalidReasons: form.invalidReasons.filter((r) => r.reason.trim()),
+      tips: form.tips.filter((t) => t.trim()),
+      isActive: form.isActive,
+    });
+    success('Article updated');
+    setEditArticle(null);
+  };
+
+  const updateReason = (
+    type: 'validReasons' | 'invalidReasons',
+    idx: number,
+    field: keyof KnowledgeArticleReason,
+    value: string,
+  ) => {
+    setForm((f) => {
+      const arr = [...f[type]];
+      arr[idx] = { ...arr[idx], [field]: value };
+      return { ...f, [type]: arr };
+    });
+  };
+
+  const addReason = (type: 'validReasons' | 'invalidReasons') => {
+    setForm((f) => ({ ...f, [type]: [...f[type], { reason: '', example: '' }] }));
+  };
+
+  const removeReason = (type: 'validReasons' | 'invalidReasons', idx: number) => {
+    setForm((f) => ({ ...f, [type]: f[type].filter((_, i) => i !== idx) }));
+  };
+
+  const updateTip = (idx: number, value: string) => {
+    setForm((f) => { const t = [...f.tips]; t[idx] = value; return { ...f, tips: t }; });
+  };
+
+  const addTip = () => setForm((f) => ({ ...f, tips: [...f.tips, ''] }));
+  const removeTip = (idx: number) => setForm((f) => ({ ...f, tips: f.tips.filter((_, i) => i !== idx) }));
+
+  return (
+    <>
+      <div className="space-y-3">
+        {articles.map((article) => (
+          <Card key={article.id} className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className={cn('w-8 h-8 rounded-lg flex items-center justify-center shrink-0', article.isActive ? 'bg-blue-50' : 'bg-gray-100')}>
+                <BookOpen className={cn('w-4 h-4', article.isActive ? 'text-blue-600' : 'text-gray-400')} />
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-gray-900">{article.department}</p>
+                <p className="text-xs text-gray-400 line-clamp-1">{article.summary}</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3 shrink-0">
+              <div className="flex items-center gap-1.5 text-xs text-gray-500">
+                <CheckCircle className="w-3.5 h-3.5 text-emerald-500" />
+                {article.validReasons.length}
+                <XCircle className="w-3.5 h-3.5 text-red-400 ml-1" />
+                {article.invalidReasons.length}
+              </div>
+              {!article.isActive && (
+                <span className="text-xs bg-gray-100 text-gray-400 px-2 py-0.5 rounded-full">Inactive</span>
+              )}
+              <button
+                onClick={() => openEdit(article)}
+                className="p-1.5 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600"
+                aria-label="Edit article"
+              >
+                <Pencil className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </Card>
+        ))}
+      </div>
+
+      <Modal
+        open={!!editArticle}
+        onClose={() => setEditArticle(null)}
+        title={`Edit Article — ${editArticle?.department}`}
+        size="lg"
+      >
+        {editArticle && (
+          <div className="space-y-5 max-h-[70vh] overflow-y-auto pr-1">
+            {/* Active toggle */}
+            <label className="flex items-center gap-2 cursor-pointer">
+              <div
+                className={cn(
+                  'w-10 h-5 rounded-full transition-colors relative',
+                  form.isActive ? 'bg-blue-600' : 'bg-gray-300'
+                )}
+                onClick={() => setForm((f) => ({ ...f, isActive: !f.isActive }))}
+              >
+                <span className={cn(
+                  'absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform',
+                  form.isActive ? 'translate-x-5' : 'translate-x-0.5'
+                )} />
+              </div>
+              <span className="text-sm text-gray-700">{form.isActive ? 'Active — visible to agents' : 'Inactive — hidden from agents'}</span>
+            </label>
+
+            {/* Summary */}
+            <Textarea
+              label="Summary"
+              required
+              rows={2}
+              value={form.summary}
+              onChange={(e) => setForm((f) => ({ ...f, summary: e.target.value }))}
+              placeholder="Brief description of when to transfer to this department."
+            />
+
+            {/* Min notes requirement */}
+            <Input
+              label="Notes requirement (optional)"
+              value={form.minNotes}
+              onChange={(e) => setForm((f) => ({ ...f, minNotes: e.target.value }))}
+              placeholder="e.g. Minimum 30 characters required. Describe what you checked."
+            />
+
+            {/* Valid reasons */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs font-semibold text-emerald-700 uppercase tracking-wide flex items-center gap-1.5">
+                  <CheckCircle className="w-3.5 h-3.5" /> Valid reasons
+                </p>
+                <Button size="sm" variant="outline" onClick={() => addReason('validReasons')}>
+                  <Plus className="w-3 h-3 mr-1" /> Add
+                </Button>
+              </div>
+              <div className="space-y-2">
+                {form.validReasons.map((r, i) => (
+                  <div key={i} className="bg-emerald-50 border border-emerald-100 rounded-lg p-3 space-y-2">
+                    <div className="flex gap-2">
+                      <input
+                        className="flex-1 text-xs bg-white border border-emerald-200 rounded px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-emerald-400"
+                        placeholder="Reason"
+                        value={r.reason}
+                        onChange={(e) => updateReason('validReasons', i, 'reason', e.target.value)}
+                      />
+                      <button onClick={() => removeReason('validReasons', i)} className="p-1.5 text-red-400 hover:text-red-600 shrink-0">
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                    <input
+                      className="w-full text-xs bg-white border border-emerald-100 rounded px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-emerald-400 text-gray-500"
+                      placeholder="Example (optional)"
+                      value={r.example ?? ''}
+                      onChange={(e) => updateReason('validReasons', i, 'example', e.target.value)}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Invalid reasons */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs font-semibold text-red-600 uppercase tracking-wide flex items-center gap-1.5">
+                  <XCircle className="w-3.5 h-3.5" /> Invalid reasons
+                </p>
+                <Button size="sm" variant="outline" onClick={() => addReason('invalidReasons')}>
+                  <Plus className="w-3 h-3 mr-1" /> Add
+                </Button>
+              </div>
+              <div className="space-y-2">
+                {form.invalidReasons.map((r, i) => (
+                  <div key={i} className="bg-red-50 border border-red-100 rounded-lg p-3 space-y-2">
+                    <div className="flex gap-2">
+                      <input
+                        className="flex-1 text-xs bg-white border border-red-200 rounded px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-red-400"
+                        placeholder="Reason"
+                        value={r.reason}
+                        onChange={(e) => updateReason('invalidReasons', i, 'reason', e.target.value)}
+                      />
+                      <button onClick={() => removeReason('invalidReasons', i)} className="p-1.5 text-red-400 hover:text-red-600 shrink-0">
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                    <input
+                      className="w-full text-xs bg-white border border-red-100 rounded px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-red-400 text-gray-500"
+                      placeholder="Example (optional)"
+                      value={r.example ?? ''}
+                      onChange={(e) => updateReason('invalidReasons', i, 'example', e.target.value)}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Tips */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Quick tips</p>
+                <Button size="sm" variant="outline" onClick={addTip}>
+                  <Plus className="w-3 h-3 mr-1" /> Add
+                </Button>
+              </div>
+              <div className="space-y-2">
+                {form.tips.map((tip, i) => (
+                  <div key={i} className="flex gap-2 items-start">
+                    <span className="w-5 h-5 rounded-full bg-blue-100 text-blue-700 text-[10px] font-bold flex items-center justify-center shrink-0 mt-1">{i + 1}</span>
+                    <input
+                      className="flex-1 text-xs bg-white border border-gray-200 rounded px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-400"
+                      placeholder="Tip text"
+                      value={tip}
+                      onChange={(e) => updateTip(i, e.target.value)}
+                    />
+                    <button onClick={() => removeTip(i)} className="p-1.5 text-gray-400 hover:text-red-500 shrink-0">
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex gap-3 pt-2 sticky bottom-0 bg-white pb-1">
+              <Button variant="outline" className="flex-1" onClick={() => setEditArticle(null)}>Cancel</Button>
+              <Button className="flex-1" onClick={handleSave}>Save Changes</Button>
+            </div>
+          </div>
+        )}
+      </Modal>
+    </>
+  );
+}
+
+// ---------- Main page ----------
 
 export default function AdminPage() {
   const [activeTab, setActiveTab] = useState<Tab>('Teams');
@@ -191,6 +452,7 @@ export default function AdminPage() {
   };
 
   const allUsers = [...MANAGERS, ...AGENTS];
+  const showAddButton = activeTab !== 'Users' && activeTab !== 'Teams' && activeTab !== 'Articles';
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
@@ -198,7 +460,6 @@ export default function AdminPage() {
 
       <div className="flex-1 overflow-y-auto">
         <div className="p-6 space-y-4">
-          {/* Tabs + Add button */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-1 border-b border-gray-200 flex-1 overflow-x-auto">
               {TABS.map((tab) => (
@@ -216,17 +477,17 @@ export default function AdminPage() {
                 </button>
               ))}
             </div>
-            {activeTab !== 'Users' && activeTab !== 'Teams' && (
+            {showAddButton && (
               <Button size="sm" onClick={openAdd} className="ml-4 shrink-0">
                 <Plus className="w-4 h-4 mr-1" /> Add {activeTab.replace(/s$/, '').replace('Transfer Reason', 'Reason')}
               </Button>
             )}
           </div>
 
-          {/* Teams */}
           {activeTab === 'Teams' && <TeamBreakdown />}
 
-          {/* Departments */}
+          {activeTab === 'Articles' && <ArticlesTab />}
+
           {activeTab === 'Departments' && (
             <Card padding="none">
               <table className="w-full">
@@ -260,7 +521,6 @@ export default function AdminPage() {
             </Card>
           )}
 
-          {/* Partners */}
           {activeTab === 'Partners' && (
             <Card padding="none">
               <table className="w-full">
@@ -294,7 +554,6 @@ export default function AdminPage() {
             </Card>
           )}
 
-          {/* Transfer Reasons */}
           {activeTab === 'Transfer Reasons' && (
             <Card padding="none">
               <table className="w-full">
@@ -323,7 +582,6 @@ export default function AdminPage() {
             </Card>
           )}
 
-          {/* Users */}
           {activeTab === 'Users' && (
             <Card padding="none">
               <table className="w-full">
@@ -383,6 +641,7 @@ export default function AdminPage() {
         </div>
       </div>
 
+      {/* Simple add/edit modal for Departments, Partners, Transfer Reasons */}
       <Modal
         open={modalOpen}
         onClose={() => setModalOpen(false)}

@@ -42,6 +42,22 @@ export interface CallVolume {
   enteredAt: string;
 }
 
+export interface KnowledgeArticleReason {
+  reason: string;
+  example?: string;
+}
+
+export interface KnowledgeArticle {
+  id: string;
+  department: string;
+  summary: string;
+  validReasons: KnowledgeArticleReason[];
+  invalidReasons: KnowledgeArticleReason[];
+  tips: string[];
+  minNotes?: string;
+  isActive: boolean;
+}
+
 export interface Department {
   id: string;
   name: string;
@@ -83,6 +99,7 @@ export interface Transfer {
   flagReasons?: string[];
   riskScore?: number;
   managerNote?: string;
+  aiExplanation?: string;
 }
 
 export interface CoachingSession {
